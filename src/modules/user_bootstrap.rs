@@ -150,6 +150,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
     ];
 
     let authorized_keys_path = format!("/home/{}/.ssh/authorized_keys", config.user);
+    let authorized_keys_tmp_path = format!("/home/{}/.ssh/.authorized_keys.tmp", config.user);
     operations.push(PlannedOperation {
         id: "ensure_authorized_keys_file",
         description: "Ensure authorized_keys file exists",
@@ -157,10 +158,21 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         args: vec!["touch".to_string(), authorized_keys_path.clone()],
         requires_confirmation: false,
     });
+    operations.push(PlannedOperation {
+        id: "prepare_authorized_keys_temp",
+        description: "Create temporary authorized_keys copy for atomic update",
+        command: "sudo".to_string(),
+        args: vec![
+            "cp".to_string(),
+            authorized_keys_path.clone(),
+            authorized_keys_tmp_path.clone(),
+        ],
+        requires_confirmation: false,
+    });
     for key in &config.keys {
         operations.push(PlannedOperation {
             id: "append_authorized_key",
-            description: "Install allowed SSH key if missing",
+            description: "Install allowed SSH key in temporary file if missing",
             command: "sudo".to_string(),
             args: vec![
                 "sh".to_string(),
@@ -168,14 +180,25 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
                 format!(
                     "grep -qxF '{}' {} || printf '%s\\n' '{}' >> {}",
                     key.replace('\'', "'\"'\"'"),
-                    authorized_keys_path,
+                    authorized_keys_tmp_path,
                     key.replace('\'', "'\"'\"'"),
-                    authorized_keys_path
+                    authorized_keys_tmp_path
                 ),
             ],
             requires_confirmation: false,
         });
     }
+    operations.push(PlannedOperation {
+        id: "promote_authorized_keys_temp",
+        description: "Atomically replace authorized_keys with temporary file",
+        command: "sudo".to_string(),
+        args: vec![
+            "mv".to_string(),
+            authorized_keys_tmp_path,
+            authorized_keys_path.clone(),
+        ],
+        requires_confirmation: false,
+    });
 
     operations.push(PlannedOperation {
         id: "set_authorized_keys_permissions",
@@ -390,6 +413,16 @@ mod tests {
             .find(|op| op.id == "append_authorized_key")
             .expect("append_authorized_key operation must exist");
         assert!(append_key.args.join(" ").contains("grep -qxF"));
+        assert!(append_key.args.join(" ").contains(".authorized_keys.tmp"));
+
+        assert!(
+            plan.iter()
+                .any(|op| op.id == "prepare_authorized_keys_temp")
+        );
+        assert!(
+            plan.iter()
+                .any(|op| op.id == "promote_authorized_keys_temp")
+        );
     }
 
     #[test]

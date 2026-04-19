@@ -316,10 +316,35 @@ mod tests {
         assert!(cluster_path_from_opts_and_env(&flux_cmd(None, None)).is_none());
     }
 
+    #[test]
+    fn kubeconfig_readable_does_not_require_elevated_access() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("kc.yaml");
+        std::fs::write(&path, b"apiVersion: v1\n").expect("write");
+        assert!(!kubeconfig_requires_elevated_access(
+            path.to_str().expect("utf8")
+        ));
+    }
+
+    #[cfg(unix)]
+    fn unix_euid_is_root() -> bool {
+        #[link(name = "c")]
+        unsafe extern "C" {
+            fn geteuid() -> u32;
+        }
+        unsafe { geteuid() == 0 }
+    }
+
+    /// Root ignores mode bits for read; GitLab CI often runs the job as root, so chmod 000 does not
+    /// produce `PermissionDenied` for the test process.
     #[cfg(unix)]
     #[test]
     fn kubeconfig_requires_elevated_when_permission_denied() {
         use std::os::unix::fs::PermissionsExt;
+
+        if unix_euid_is_root() {
+            return;
+        }
 
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("kc.yaml");

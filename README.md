@@ -6,7 +6,7 @@
 
 - `heimdall verify doctor`: run non-mutating environment readiness checks.
 - `heimdall bootstrap flux`: scaffolded placeholder.
-- `heimdall bootstrap user`: scaffolded placeholder.
+- `heimdall bootstrap user`: create/update admin user and allowed SSH keys.
 - `heimdall harden ssh`: scaffolded placeholder.
 
 ## Architecture
@@ -37,6 +37,24 @@ JSON output:
 ```bash
 cargo run -- verify doctor --output json
 ```
+
+Bootstrap user (non-interactive):
+
+```bash
+cargo run -- bootstrap user \
+  --user admin \
+  --group admin \
+  --key-file ~/.ssh/id_ed25519.pub \
+  --dry-run
+```
+
+Bootstrap user (interactive key prompt):
+
+```bash
+cargo run -- bootstrap user --user admin
+```
+
+When risky auth changes are requested (`--disable-root-login` and/or `--disable-password-auth`), Heimdall prompts for explicit confirmation unless `--yes` is provided.
 
 ## Development workflow
 

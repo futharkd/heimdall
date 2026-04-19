@@ -1,3 +1,4 @@
+pub mod bootstrap;
 pub mod verify;
 
 use anyhow::Result;
@@ -15,10 +16,7 @@ pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
                 println!("bootstrap flux is scaffolded but not implemented yet");
                 Ok(ExitStatus::Warning)
             }
-            BootstrapAction::User => {
-                println!("bootstrap user is scaffolded but not implemented yet");
-                Ok(ExitStatus::Warning)
-            }
+            BootstrapAction::User(opts) => bootstrap::user(opts),
         },
         Command::Harden(cmd) => match cmd.action {
             HardenAction::Ssh => {

@@ -24,13 +24,35 @@ pub enum Command {
 #[derive(Debug, Subcommand)]
 pub enum BootstrapAction {
     Flux,
-    User,
+    User(BootstrapUserCommand),
 }
 
 #[derive(Debug, clap::Args)]
 pub struct BootstrapCommand {
     #[command(subcommand)]
     pub action: BootstrapAction,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct BootstrapUserCommand {
+    #[arg(long)]
+    pub user: Option<String>,
+    #[arg(long)]
+    pub group: Option<String>,
+    #[arg(long = "key-file")]
+    pub key_files: Vec<String>,
+    #[arg(long = "key")]
+    pub keys: Vec<String>,
+    #[arg(long)]
+    pub disable_root_login: bool,
+    #[arg(long)]
+    pub disable_password_auth: bool,
+    #[arg(long)]
+    pub dry_run: bool,
+    #[arg(long)]
+    pub yes: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
 }
 
 #[derive(Debug, Subcommand)]

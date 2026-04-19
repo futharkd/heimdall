@@ -3,8 +3,19 @@ stages:
   - build
   - publish
 
+# CARGO_HOME under the repo so cache paths stay inside CI_PROJECT_DIR (GitLab requirement).
+# Key from Cargo.lock: new cache when dependencies change; shared across jobs on same lockfile.
 default:
   image: rust:1.94
+  variables:
+    CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
+  cache:
+    key:
+      files:
+        - Cargo.lock
+    paths:
+      - target/
+      - .cargo/
 
 test:fmt:
   stage: test
@@ -39,6 +50,7 @@ build:linux-amd64:
 publish:package:
   stage: publish
   image: curlimages/curl:8.11.1
+  cache: []
   needs:
     - job: build:linux-amd64
       artifacts: true

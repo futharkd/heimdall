@@ -13,7 +13,7 @@
 
 ## Goals
 
-- Provide explicit, task-scoped operational commands (`bootstrap`, `harden`, `verify`).
+- Provide explicit, task-scoped operational commands (`bootstrap`, `harden`, `verify`, `update`).
 - Keep command handlers thin and push behavior into reusable modules.
 - Prefer safe defaults:
   - non-mutating verification commands
@@ -38,6 +38,13 @@
   - Join uses the official CLI: `netbird up` with optional `--setup-key` and `--management-url` (from flags or `NETBIRD_SETUP_KEY` / `NETBIRD_MANAGEMENT_URL`).
   - Verify runs `netbird status` and requires `Management: Connected` and `Signal: Connected` in output; `ip link show wt0` is best-effort (warning if absent).
   - Dry-run redacts sensitive env vars and `--setup-key` values in reported command lines.
+- `heimdall update`
+  - Implemented (Linux x86_64 only).
+  - Resolves GitLab Generic Package URLs from `CARGO_PKG_REPOSITORY` (same layout as README / CI: `.../packages/generic/heimdall/{latest|tag}/heimdall-linux-amd64` plus `.sha256`).
+  - Fetches the published `.sha256`, compares it to the SHA256 of the file behind `current_exe()`, and skips the binary download when digests match unless `--force`.
+  - `--force` skips only that digest-equality short-circuit; the downloaded artifact is still verified against the remote `.sha256` before `rename`.
+  - Uses `curl` subprocesses via `CommandRunner`; optional `GITLAB_TOKEN` / `PRIVATE_TOKEN` is passed as `PRIVATE-TOKEN` on `curl` and is **redacted** in all reported command strings.
+  - Supports `--dry-run`, `--yes`, `--output human|json`, and `--tag` for a non-`latest` package version string.
 - `heimdall bootstrap flux`
   - Placeholder only (returns warning status).
 - `heimdall harden ssh`
@@ -54,6 +61,7 @@ Heimdall now uses a hybrid architecture: feature-first folders for domain logic 
   - `src/features/bootstrap/user`: `input`, `validate`, `plan`, `execute`, `report`, `command`
   - `src/features/bootstrap/netbird`: `input`, `validate`, `plan`, `execute`, `report`, `command`
   - `src/features/verify/doctor`: `checks`, `report`, `command`
+  - `src/features/update`: `package`, `checksum`, `input`, `execute`, `report`, `command`
 - `src/core`: shared execution contracts/types (operation status/results/plans).
 - `src/output`: human-readable output formatting.
 - `src/runtime`: exit status and tracing bootstrap.
@@ -116,6 +124,7 @@ Safety behavior:
 - Human output:
   - `verify doctor`: pass/warn/fail lines
   - `bootstrap user`: per-operation plan/skip/ok/fail lines
+  - `heimdall update`: channel, URLs, digests, per-operation plan/skip/ok/fail lines
 - JSON output:
   - serialized report structs via `serde`
 
@@ -131,6 +140,10 @@ Notes:
 
 - Placeholder commands return warning status.
 - Implemented commands return failure on hard failures.
+
+### Update
+
+`heimdall update` mutates the running binary on disk when an update is applied (or when `--force` triggers a reinstall). It requires `curl` on `PATH` and write access to the directory containing the current executable (often `sudo` for `/usr/local/bin` installs).
 
 ## Quality gates and CI
 
@@ -154,6 +167,7 @@ GitLab CI stages:
   - `verify doctor --output json`
   - `bootstrap user` flags parsing
   - `bootstrap netbird` flags parsing
+  - `update` flags parsing
 - `bootstrap user` feature tests:
   - invalid key rejection
   - missing key plan failure
@@ -166,10 +180,17 @@ GitLab CI stages:
   - plan uses official install URL and passes `NETBIRD_RELEASE` / `SKIP_UI_APP` into the install step
   - dry-run output redacts `GITHUB_TOKEN` and `--setup-key` arguments
   - `netbird status` output parsing for connected management/signal lines
+- `update` feature tests:
+  - repository URL parsing and generic package URL construction
+  - `sha256sum`-style checksum parsing and SHA256 helpers
+  - mocked `curl` ordering (checksum fetch; optional binary fetch when digest differs or `--force`)
+  - `--dry-run --force` plans a reinstall without a second `curl` for the binary
+  - reported `curl` lines redact `PRIVATE-TOKEN` header values
 
 ## Known limitations / next steps
 
 - `bootstrap flux` and `harden ssh` are not implemented yet.
+- `heimdall update` is Linux amd64 only; Windows and macOS are out of scope for v1.
 - `bootstrap netbird` assumes a Linux-style host with `curl`, `sh`, `netbird`, and `ip` available on `PATH` after install; it does not configure NetBird management servers.
 - `bootstrap user` currently assumes Linux host tools (`sudo`, `getent`, `useradd`, `sed`, `systemctl`, `sshd`).
 - Remote execution backend is not implemented yet (local runner only).

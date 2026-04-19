@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use crate::cli::{BootstrapAction, Command, HardenAction, VerifyAction};
-use crate::features::{bootstrap, verify};
+use crate::features::{bootstrap, update, verify};
 use crate::runtime::ExitStatus;
 
 pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
@@ -23,5 +23,6 @@ pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
                 Ok(ExitStatus::Warning)
             }
         },
+        Command::Update(opts) => update::command::run(opts),
     }
 }

@@ -19,6 +19,7 @@ pub enum Command {
     Bootstrap(BootstrapCommand),
     Harden(HardenCommand),
     Verify(VerifyCommand),
+    Update(UpdateCommand),
 }
 
 #[derive(Debug, Subcommand)]
@@ -102,6 +103,24 @@ pub struct VerifyCommand {
 
 #[derive(Debug, clap::Args)]
 pub struct VerifyDoctorCommand {
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct UpdateCommand {
+    /// Print resolved URLs and digests; fetch remote `.sha256` only (no full binary download, no replace).
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Skip confirmation before replacing the running binary.
+    #[arg(long)]
+    pub yes: bool,
+    /// Re-download and replace even when the remote digest matches the running binary (checksum verification still applies).
+    #[arg(long)]
+    pub force: bool,
+    /// Generic package version string (default: `latest` rolling package from main).
+    #[arg(long)]
+    pub tag: Option<String>,
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     pub output: OutputFormat,
 }

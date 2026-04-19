@@ -8,6 +8,7 @@
 - `heimdall bootstrap flux`: scaffolded placeholder.
 - `heimdall bootstrap netbird`: install NetBird via the official `install.sh`, then `netbird up` and status checks.
 - `heimdall bootstrap user`: create/update admin user and allowed SSH keys.
+- `heimdall update`: refresh the installed Linux amd64 binary from the GitLab Generic Package (`latest` by default), using the published `.sha256` and `curl`.
 - `heimdall harden ssh`: scaffolded placeholder.
 
 ## Architecture
@@ -16,7 +17,7 @@ The codebase is organized by responsibility:
 
 - `src/cli`: clap models and subcommand tree
 - `src/commands`: thin dispatch into feature modules
-- `src/features`: bootstrap and verify flows (`bootstrap/user`, `bootstrap/netbird`, `verify/doctor`, …)
+- `src/features`: bootstrap, verify, and update flows (`bootstrap/user`, `bootstrap/netbird`, `verify/doctor`, `update`, …)
 - `src/core`: shared operation types for planned steps and reports
 - `src/runtime`: initialization and exit status conventions
 - `src/output`: human and machine output formatting helpers
@@ -129,6 +130,28 @@ wget "https://gitlab.com/api/v4/projects/futharkd%2Fheimdall/packages/generic/he
 ```
 
 Checksum file is published alongside the binary as `heimdall-linux-amd64.sha256`.
+
+### Self-update (`heimdall update`)
+
+`heimdall update` is supported on **Linux x86_64** only. It derives the GitLab project from the crate `repository` metadata, targets the rolling **`latest`** generic package on `main` (or `--tag <version>` for a published package channel), then:
+
+1. Downloads the remote `heimdall-linux-amd64.sha256` with `curl` (small fetch; also used in `--dry-run` so local vs remote digests can be printed).
+2. Compares that digest to the SHA256 of the on-disk file behind `std::env::current_exe()`.
+3. If they match, exits successfully unless **`--force`** is set (force still **verifies** the downloaded binary against the `.sha256` before replacing).
+4. If they differ (or `--force`), downloads the binary to a temp file next to the target, verifies the hash, optionally prompts for confirmation, then atomically replaces the running binary.
+
+```bash
+# Preview: fetches remote checksum only; shows planned curl/rename steps when an update (or --force) would run
+cargo run -- update --dry-run
+
+# Non-interactive replace when an update is available
+sudo heimdall update --yes
+
+# Reinstall from latest even when digests already match (checksum verification is not skipped)
+sudo heimdall update --force --yes
+```
+
+Private GitLab projects or token-authenticated downloads: set **`GITLAB_TOKEN`** or **`PRIVATE_TOKEN`**; it is sent as the GitLab `PRIVATE-TOKEN` header on `curl`. Reported command lines **redact** that header value.
 
 ## Roadmap
 

@@ -1,93 +1,9 @@
 use anyhow::{Result, bail};
-use serde::Serialize;
 
-use crate::runner::CommandRunner;
+use crate::core::operation::PlannedOperation;
 
-#[derive(Debug, Clone)]
-pub struct BootstrapUserConfig {
-    pub user: String,
-    pub group: String,
-    pub keys: Vec<String>,
-    pub disable_root_login: bool,
-    pub disable_password_auth: bool,
-    pub dry_run: bool,
-    pub confirmed: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OperationStatus {
-    Planned,
-    Skipped,
-    Succeeded,
-    Failed,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct OperationResult {
-    pub id: &'static str,
-    pub description: &'static str,
-    pub status: OperationStatus,
-    pub detail: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct BootstrapUserReport {
-    pub operations: Vec<OperationResult>,
-}
-
-impl BootstrapUserReport {
-    pub fn has_failures(&self) -> bool {
-        self.operations
-            .iter()
-            .any(|operation| operation.status == OperationStatus::Failed)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PlannedOperation {
-    pub id: &'static str,
-    pub description: &'static str,
-    pub command: String,
-    pub args: Vec<String>,
-    pub requires_confirmation: bool,
-}
-
-pub fn validate_username(username: &str) -> Result<()> {
-    if username.is_empty() {
-        bail!("username must not be empty");
-    }
-
-    let first = username.as_bytes()[0] as char;
-    if !(first.is_ascii_lowercase() || first == '_') {
-        bail!("username must start with a lowercase letter or underscore");
-    }
-
-    if !username
-        .chars()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
-    {
-        bail!("username contains unsupported characters");
-    }
-
-    Ok(())
-}
-
-pub fn validate_ssh_key(key: &str) -> Result<()> {
-    let mut parts = key.split_whitespace();
-    let algo = parts.next().unwrap_or_default();
-    let payload = parts.next().unwrap_or_default();
-    if algo.is_empty() || payload.is_empty() {
-        bail!("ssh key must contain algorithm and payload");
-    }
-
-    let supported = ["ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256"];
-    if !supported.contains(&algo) {
-        bail!("unsupported ssh key algorithm: {algo}");
-    }
-
-    Ok(())
-}
+use super::input::BootstrapUserConfig;
+use super::validate::{validate_ssh_key, validate_username};
 
 pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>> {
     validate_username(&config.user)?;
@@ -273,106 +189,10 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
     Ok(operations)
 }
 
-pub fn execute_plan(
-    runner: &dyn CommandRunner,
-    config: &BootstrapUserConfig,
-    operations: &[PlannedOperation],
-) -> BootstrapUserReport {
-    let mut results = Vec::with_capacity(operations.len());
-
-    for operation in operations {
-        if operation.requires_confirmation && !config.confirmed {
-            results.push(OperationResult {
-                id: operation.id,
-                description: operation.description,
-                status: OperationStatus::Skipped,
-                detail: "skipped because risky changes were not confirmed".to_string(),
-            });
-            continue;
-        }
-
-        if config.dry_run {
-            results.push(OperationResult {
-                id: operation.id,
-                description: operation.description,
-                status: OperationStatus::Planned,
-                detail: format!(
-                    "dry-run: {} {}",
-                    operation.command,
-                    operation.args.join(" ")
-                ),
-            });
-            continue;
-        }
-
-        let arg_refs: Vec<&str> = operation.args.iter().map(String::as_str).collect();
-        match runner.run(&operation.command, &arg_refs) {
-            Ok(output) if output.status.success() => results.push(OperationResult {
-                id: operation.id,
-                description: operation.description,
-                status: OperationStatus::Succeeded,
-                detail: String::from_utf8_lossy(&output.stdout).trim().to_string(),
-            }),
-            Ok(output) => {
-                results.push(OperationResult {
-                    id: operation.id,
-                    description: operation.description,
-                    status: OperationStatus::Failed,
-                    detail: format!(
-                        "exit status {}: {}",
-                        output.status,
-                        String::from_utf8_lossy(&output.stderr).trim()
-                    ),
-                });
-                break;
-            }
-            Err(err) => {
-                results.push(OperationResult {
-                    id: operation.id,
-                    description: operation.description,
-                    status: OperationStatus::Failed,
-                    detail: format!("failed to execute: {err}"),
-                });
-                break;
-            }
-        }
-    }
-
-    BootstrapUserReport {
-        operations: results,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
-
-    use super::{BootstrapUserConfig, OperationStatus, build_plan, execute_plan, validate_ssh_key};
-    use crate::runner::CommandRunner;
-
-    struct MockRunner {
-        fail_after: Option<usize>,
-        calls: std::sync::Mutex<usize>,
-    }
-
-    impl CommandRunner for MockRunner {
-        fn run(&self, _program: &str, _args: &[&str]) -> Result<std::process::Output> {
-            let mut guard = self.calls.lock().expect("lock");
-            *guard += 1;
-            if self.fail_after.is_some_and(|n| *guard >= n) {
-                return Ok(std::process::Output {
-                    status: std::os::unix::process::ExitStatusExt::from_raw(1 << 8),
-                    stdout: vec![],
-                    stderr: b"boom".to_vec(),
-                });
-            }
-            Ok(std::process::Output {
-                status: std::os::unix::process::ExitStatusExt::from_raw(0),
-                stdout: b"ok".to_vec(),
-                stderr: vec![],
-            })
-        }
-    }
+    use super::build_plan;
+    use crate::features::bootstrap::user::input::BootstrapUserConfig;
 
     fn config() -> BootstrapUserConfig {
         BootstrapUserConfig {
@@ -384,11 +204,6 @@ mod tests {
             dry_run: false,
             confirmed: true,
         }
-    }
-
-    #[test]
-    fn rejects_invalid_key() {
-        assert!(validate_ssh_key("not-a-key").is_err());
     }
 
     #[test]
@@ -422,36 +237,6 @@ mod tests {
         assert!(
             plan.iter()
                 .any(|op| op.id == "promote_authorized_keys_temp")
-        );
-    }
-
-    #[test]
-    fn execute_stops_on_failure() {
-        let c = config();
-        let plan = build_plan(&c).expect("plan should build");
-        let runner = MockRunner {
-            fail_after: Some(2),
-            calls: std::sync::Mutex::new(0),
-        };
-        let report = execute_plan(&runner, &c, &plan);
-        assert!(report.has_failures());
-    }
-
-    #[test]
-    fn risky_steps_skipped_without_confirmation() {
-        let mut c = config();
-        c.confirmed = false;
-        let plan = build_plan(&c).expect("plan should build");
-        let runner = MockRunner {
-            fail_after: None,
-            calls: std::sync::Mutex::new(0),
-        };
-        let report = execute_plan(&runner, &c, &plan);
-        assert!(
-            report
-                .operations
-                .iter()
-                .any(|op| op.status == OperationStatus::Skipped)
         );
     }
 }

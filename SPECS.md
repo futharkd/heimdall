@@ -39,12 +39,15 @@
 
 ## Architecture
 
-Code is layered by responsibility:
+Heimdall now uses a hybrid architecture: feature-first folders for domain logic plus shared cross-cutting layers.
 
 - `src/main.rs`: startup, tracing init, dispatch, process exit.
 - `src/cli`: clap command tree and argument models.
-- `src/commands`: command handlers and route dispatch.
-- `src/modules`: domain logic modules (`doctor`, `user_bootstrap`).
+- `src/commands`: thin route dispatch only.
+- `src/features`: feature-owned command + behavior implementation.
+  - `src/features/bootstrap/user`: `input`, `validate`, `plan`, `execute`, `report`, `command`
+  - `src/features/verify/doctor`: `checks`, `report`, `command`
+- `src/core`: shared execution contracts/types (operation status/results/plans).
 - `src/output`: human-readable output formatting.
 - `src/runtime`: exit status and tracing bootstrap.
 - `src/runner`: command execution abstraction (`CommandRunner`, `LocalRunner`).
@@ -135,13 +138,13 @@ GitLab CI runs Rust quality checks in `test` stage:
 - CLI parse tests:
   - `verify doctor --output json`
   - `bootstrap user` flags parsing
-- `user_bootstrap` module tests:
+- `bootstrap user` feature tests:
   - invalid key rejection
   - missing key plan failure
   - idempotent plan semantics for user/key operations
   - stop-on-failure behavior
   - confirmation-gated risky step skipping
-- `doctor` module tests:
+- `verify doctor` feature tests:
   - failure detection in report
 
 ## Known limitations / next steps

@@ -3,35 +3,24 @@ use std::io::{self, Write};
 use anyhow::{Context, Result, bail};
 
 use crate::cli::{BootstrapUserCommand, OutputFormat};
-use crate::modules::user_bootstrap::{BootstrapUserConfig, build_plan, execute_plan};
-use crate::output::render_bootstrap_user_human;
-use crate::runner::LocalRunner;
-use crate::runtime::ExitStatus;
 
-pub fn user(opts: BootstrapUserCommand) -> Result<ExitStatus> {
-    let ResolvedInputs { config, output } = resolve_inputs(opts)?;
-    let plan = build_plan(&config)?;
-    let runner = LocalRunner;
-    let report = execute_plan(&runner, &config, &plan);
-
-    match output {
-        OutputFormat::Human => println!("{}", render_bootstrap_user_human(&report)),
-        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
-    }
-
-    Ok(if report.has_failures() {
-        ExitStatus::Failure
-    } else {
-        ExitStatus::Success
-    })
+#[derive(Debug, Clone)]
+pub struct BootstrapUserConfig {
+    pub user: String,
+    pub group: String,
+    pub keys: Vec<String>,
+    pub disable_root_login: bool,
+    pub disable_password_auth: bool,
+    pub dry_run: bool,
+    pub confirmed: bool,
 }
 
-struct ResolvedInputs {
-    config: BootstrapUserConfig,
-    output: OutputFormat,
+pub struct ResolvedInputs {
+    pub config: BootstrapUserConfig,
+    pub output: OutputFormat,
 }
 
-fn resolve_inputs(opts: BootstrapUserCommand) -> Result<ResolvedInputs> {
+pub fn resolve_inputs(opts: BootstrapUserCommand) -> Result<ResolvedInputs> {
     let user = match opts.user {
         Some(value) => value,
         None => prompt("Enter admin username: ")?,
@@ -99,38 +88,4 @@ fn confirm_risky_changes() -> Result<bool> {
     let answer =
         prompt("Risky SSH authentication changes requested. Continue? type 'yes' to proceed: ")?;
     Ok(answer == "yes")
-}
-
-#[cfg(test)]
-mod tests {
-    use clap::Parser;
-
-    use crate::cli::{BootstrapAction, Cli, Command, OutputFormat};
-
-    #[test]
-    fn cli_parses_bootstrap_user_flags() {
-        let parsed = Cli::try_parse_from([
-            "heimdall",
-            "bootstrap",
-            "user",
-            "--user",
-            "admin",
-            "--key",
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIabc123 admin@host",
-            "--output",
-            "json",
-        ])
-        .expect("cli should parse");
-
-        let Command::Bootstrap(bootstrap) = parsed.command else {
-            panic!("expected bootstrap command");
-        };
-
-        let BootstrapAction::User(user) = bootstrap.action else {
-            panic!("expected user action");
-        };
-
-        assert_eq!(user.user.as_deref(), Some("admin"));
-        assert!(matches!(user.output, OutputFormat::Json));
-    }
 }

@@ -1,33 +1,6 @@
-use serde::Serialize;
-
 use crate::runner::{CommandRunner, LocalRunner};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CheckStatus {
-    Pass,
-    Warn,
-    Fail,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct DoctorCheck {
-    pub id: &'static str,
-    pub description: &'static str,
-    pub status: CheckStatus,
-    pub detail: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct DoctorReport {
-    pub checks: Vec<DoctorCheck>,
-}
-
-impl DoctorReport {
-    pub fn has_failures(&self) -> bool {
-        self.checks.iter().any(|c| c.status == CheckStatus::Fail)
-    }
-}
+use super::report::{CheckStatus, DoctorCheck, DoctorReport};
 
 pub fn run() -> DoctorReport {
     let checks = vec![cargo_available(), cwd_readable(), git_repo_present()];
@@ -95,7 +68,7 @@ fn git_repo_present() -> DoctorCheck {
 
 #[cfg(test)]
 mod tests {
-    use super::{CheckStatus, DoctorCheck, DoctorReport};
+    use super::super::report::{CheckStatus, DoctorCheck, DoctorReport};
 
     #[test]
     fn report_detects_failures() {

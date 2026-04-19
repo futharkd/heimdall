@@ -1,12 +1,13 @@
 use anyhow::Result;
 
 use crate::cli::{OutputFormat, VerifyDoctorCommand};
-use crate::modules::doctor;
 use crate::output::render_doctor_human;
 use crate::runtime::ExitStatus;
 
-pub fn doctor(opts: VerifyDoctorCommand) -> Result<ExitStatus> {
-    let report = doctor::run();
+use super::checks;
+
+pub fn run(opts: VerifyDoctorCommand) -> Result<ExitStatus> {
+    let report = checks::run();
 
     match opts.output {
         OutputFormat::Human => println!("{}", render_doctor_human(&report)),
@@ -36,7 +37,6 @@ mod tests {
         };
 
         let VerifyAction::Doctor(doctor) = verify.action;
-
         assert!(matches!(doctor.output, OutputFormat::Json));
     }
 }

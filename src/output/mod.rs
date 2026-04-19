@@ -1,5 +1,6 @@
-use crate::modules::doctor::{CheckStatus, DoctorReport};
-use crate::modules::user_bootstrap::{BootstrapUserReport, OperationStatus};
+use crate::core::operation::OperationStatus;
+use crate::features::bootstrap::user::report::BootstrapUserReport;
+use crate::features::verify::doctor::report::{CheckStatus, DoctorReport};
 
 pub fn render_doctor_human(report: &DoctorReport) -> String {
     let mut lines = Vec::with_capacity(report.checks.len() + 1);

@@ -14,7 +14,33 @@ pub struct K3sPlannedOperation {
     pub failure_is_warning: bool,
 }
 
+fn kubectl_verify_operation() -> K3sPlannedOperation {
+    K3sPlannedOperation {
+        id: "k3s_kubectl_get_nodes",
+        description: "Verify cluster API (`sudo k3s kubectl get nodes -o name`)",
+        command: "sudo".to_string(),
+        args: vec![
+            "k3s".to_string(),
+            "kubectl".to_string(),
+            "get".to_string(),
+            "nodes".to_string(),
+            "-o".to_string(),
+            "name".to_string(),
+        ],
+        env: vec![],
+        failure_is_warning: false,
+    }
+}
+
 pub fn build_plan(config: &BootstrapK3sConfig) -> Result<Vec<K3sPlannedOperation>> {
+    if config.skip_install {
+        let mut ops = Vec::new();
+        if !config.skip_start {
+            ops.push(kubectl_verify_operation());
+        }
+        return Ok(ops);
+    }
+
     let install_path = config
         .install_script_path
         .to_str()
@@ -69,20 +95,7 @@ pub fn build_plan(config: &BootstrapK3sConfig) -> Result<Vec<K3sPlannedOperation
     let mut ops = vec![download, run_install];
 
     if !config.skip_start {
-        ops.push(K3sPlannedOperation {
-            id: "k3s_kubectl_get_nodes",
-            description: "Verify cluster API (`k3s kubectl get nodes -o name`)",
-            command: "k3s".to_string(),
-            args: vec![
-                "kubectl".to_string(),
-                "get".to_string(),
-                "nodes".to_string(),
-                "-o".to_string(),
-                "name".to_string(),
-            ],
-            env: vec![],
-            failure_is_warning: false,
-        });
+        ops.push(kubectl_verify_operation());
     }
 
     Ok(ops)
@@ -107,6 +120,8 @@ mod tests {
             install_exec: Some("--disable traefik".to_string()),
             skip_start: false,
             skip_enable: false,
+            force: false,
+            skip_install: false,
             dry_run: false,
         }
     }
@@ -121,6 +136,8 @@ mod tests {
             install_exec: None,
             skip_start: false,
             skip_enable: false,
+            force: false,
+            skip_install: false,
             dry_run: false,
         }
     }
@@ -189,5 +206,28 @@ mod tests {
                 .iter()
                 .any(|(k, v)| k == "INSTALL_K3S_SKIP_ENABLE" && v == "true")
         );
+    }
+
+    #[test]
+    fn plan_skip_install_omits_download_and_install_keeps_verify() {
+        let mut c = server_config();
+        c.skip_install = true;
+        let plan = build_plan(&c).expect("plan");
+        assert_eq!(plan.len(), 1);
+        assert_eq!(plan[0].id, "k3s_kubectl_get_nodes");
+        assert!(
+            !plan
+                .iter()
+                .any(|o| o.id == "download_official_install_script")
+        );
+    }
+
+    #[test]
+    fn plan_skip_install_and_skip_start_yields_empty_plan() {
+        let mut c = server_config();
+        c.skip_install = true;
+        c.skip_start = true;
+        let plan = build_plan(&c).expect("plan");
+        assert!(plan.is_empty());
     }
 }

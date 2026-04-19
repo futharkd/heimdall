@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::{Result, bail};
 
 use crate::cli::{BootstrapK3sCommand, K3sRole, OutputFormat};
+use crate::runner::{CommandRunner, IoMode};
 
 #[derive(Debug, Clone)]
 pub struct BootstrapK3sConfig {
@@ -15,6 +16,9 @@ pub struct BootstrapK3sConfig {
     pub install_exec: Option<String>,
     pub skip_start: bool,
     pub skip_enable: bool,
+    pub force: bool,
+    /// When true, plan omits get.k3s.io download and install (set in `command::run` after probe).
+    pub skip_install: bool,
     pub dry_run: bool,
 }
 
@@ -92,10 +96,25 @@ pub fn resolve_inputs(opts: BootstrapK3sCommand) -> Result<ResolvedK3sInputs> {
             install_exec,
             skip_start: opts.skip_start,
             skip_enable: opts.skip_enable,
+            force: opts.force,
+            skip_install: false,
             dry_run: opts.dry_run,
         },
         output: opts.output,
     })
+}
+
+/// Read-only probe: `k3s` on `PATH` (same binary install script provides).
+pub fn probe_k3s_on_path(runner: &dyn CommandRunner) -> bool {
+    runner
+        .run_with_env_io(
+            "sh",
+            &["-c", "command -v k3s >/dev/null 2>&1"],
+            &[],
+            IoMode::Buffered,
+        )
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 fn confirm_install() -> Result<bool> {
@@ -111,4 +130,50 @@ fn prompt(label: &str) -> Result<String> {
     let mut buf = String::new();
     io::stdin().read_line(&mut buf)?;
     Ok(buf.trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::probe_k3s_on_path;
+    use crate::runner::{CommandRunner, IoMode};
+
+    struct MockProbe(bool);
+
+    impl CommandRunner for MockProbe {
+        fn run_with_env_io(
+            &self,
+            program: &str,
+            args: &[&str],
+            _env: &[(&str, &str)],
+            _mode: IoMode,
+        ) -> anyhow::Result<std::process::Output> {
+            if program == "sh"
+                && args.len() >= 2
+                && args[0] == "-c"
+                && args[1] == "command -v k3s >/dev/null 2>&1"
+            {
+                let code = if self.0 { 0 } else { 1 };
+                return Ok(std::process::Output {
+                    status: std::os::unix::process::ExitStatusExt::from_raw(code),
+                    stdout: vec![],
+                    stderr: vec![],
+                });
+            }
+            Ok(std::process::Output {
+                status: std::os::unix::process::ExitStatusExt::from_raw(1),
+                stdout: vec![],
+                stderr: vec![],
+            })
+        }
+    }
+
+    #[test]
+    fn probe_k3s_on_path_true_when_sh_probe_succeeds() {
+        assert!(probe_k3s_on_path(&MockProbe(true)));
+    }
+
+    #[test]
+    fn probe_k3s_on_path_false_when_sh_probe_fails() {
+        assert!(!probe_k3s_on_path(&MockProbe(false)));
+    }
 }

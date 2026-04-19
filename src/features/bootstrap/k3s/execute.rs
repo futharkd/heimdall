@@ -52,7 +52,7 @@ pub fn execute_plan(
                         description: operation.description,
                         status: OperationStatus::Failed,
                         detail: format!(
-                            "k3s kubectl succeeded but reported no nodes (expected `node/...` lines): {detail}"
+                            "sudo k3s kubectl succeeded but reported no nodes (expected `node/...` lines): {detail}"
                         ),
                     });
                     break;
@@ -209,7 +209,11 @@ mod tests {
             _env: &[(&str, &str)],
             _mode: IoMode,
         ) -> anyhow::Result<std::process::Output> {
-            if program == "k3s" && args.first() == Some(&"kubectl") && args.get(1) == Some(&"get") {
+            if program == "sudo"
+                && args.first() == Some(&"k3s")
+                && args.get(1) == Some(&"kubectl")
+                && args.get(2) == Some(&"get")
+            {
                 return Ok(std::process::Output {
                     status: std::os::unix::process::ExitStatusExt::from_raw(0),
                     stdout: b"node/cp\n".to_vec(),
@@ -272,6 +276,8 @@ mod tests {
             install_exec: None,
             skip_start: false,
             skip_enable: false,
+            force: false,
+            skip_install: false,
             dry_run: false,
         };
         let plan = vec![
@@ -294,8 +300,9 @@ mod tests {
             K3sPlannedOperation {
                 id: "k3s_kubectl_get_nodes",
                 description: "v",
-                command: "k3s".to_string(),
+                command: "sudo".to_string(),
                 args: vec![
+                    "k3s".to_string(),
                     "kubectl".to_string(),
                     "get".to_string(),
                     "nodes".to_string(),

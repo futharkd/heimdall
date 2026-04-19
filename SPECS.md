@@ -41,13 +41,14 @@
   - Dry-run redacts sensitive env vars and `--setup-key` values in reported command lines.
 - `heimdall bootstrap k3s`
   - Implemented.
+  - Idempotent by default: before planning, probes `command -v k3s`; if found and **`--force` is not set**, the get.k3s.io download and install steps are omitted (still runs verify when not `--skip-start`). **`--force`** always includes download + install in the plan (re-run installer / upgrade path).
   - Delegates install to the official `https://get.k3s.io` script (downloaded with `curl -fsSL` to a temp file, then executed with `sh` and an explicit environment block).
   - `--role server` (default) runs a standard server install. `--role agent` requires `--server-url` / `K3S_URL` (must start with `https://` and include a host) and `--token` / `K3S_TOKEN`.
   - Version pin: `--version` or env `INSTALL_K3S_VERSION` → `INSTALL_K3S_VERSION`. Extra k3s process args: `--install-exec` or env `INSTALL_K3S_EXEC` → `INSTALL_K3S_EXEC`.
-  - `--skip-start` sets `INSTALL_K3S_SKIP_START=true`; `--skip-enable` sets `INSTALL_K3S_SKIP_ENABLE=true`. When `--skip-start` is set, the post-install `k3s kubectl get nodes -o name` verification step is omitted (no cluster API check).
-  - Verify (when not skipping start): runs `k3s kubectl get nodes -o name` and requires at least one `node/...` line in stdout.
+  - `--skip-start` sets `INSTALL_K3S_SKIP_START=true`; `--skip-enable` sets `INSTALL_K3S_SKIP_ENABLE=true`. When `--skip-start` is set, the post-install `sudo k3s kubectl get nodes -o name` verification step is omitted (no cluster API check).
+  - Verify (when not skipping start): runs `sudo k3s kubectl get nodes -o name` (reads root-owned `/etc/rancher/k3s/k3s.yaml`) and requires at least one `node/...` line in stdout.
   - Dry-run redacts reported env values for keys whose names imply secrets (e.g. `K3S_TOKEN`, any key containing `TOKEN` or `SECRET`, and `GITHUB_TOKEN`).
-  - Supports `--dry-run`, `--yes`, and `--output human|json`.
+  - Supports `--dry-run`, `--yes`, `--force`, and `--output human|json`.
 - `heimdall update`
   - Implemented (Linux x86_64 only).
   - Resolves GitLab Generic Package URLs from `CARGO_PKG_REPOSITORY` (same layout as README / CI: `.../packages/generic/heimdall/{latest|tag}/heimdall-linux-amd64` plus `.sha256`).
@@ -176,7 +177,7 @@ GitLab CI stages:
   - `verify doctor --output json`
   - `bootstrap user` flags parsing
   - `bootstrap netbird` flags parsing
-  - `bootstrap k3s` flags parsing
+  - `bootstrap k3s` flags parsing (including `--force`)
   - `update` flags parsing
 - `bootstrap user` feature tests:
   - invalid key rejection
@@ -192,9 +193,10 @@ GitLab CI stages:
   - `netbird status` output parsing for connected management/signal lines
 - `bootstrap k3s` feature tests:
   - plan uses `get.k3s.io`, sets `INSTALL_K3S_*` / agent `K3S_URL` / `K3S_TOKEN` env on the install step, and omits kubectl verify when `--skip-start`
+  - plan with `skip_install` skips download/install; `skip_install` + `skip_start` yields empty plan
   - dry-run output redacts `K3S_TOKEN` in env display
   - URL validation for agent server URL (`https://` + host)
-  - mocked execute reaches kubectl verify when prior steps succeed
+  - mocked execute reaches `sudo k3s kubectl` verify when prior steps succeed
 - `update` feature tests:
   - repository URL parsing and generic package URL construction
   - `sha256sum`-style checksum parsing and SHA256 helpers
@@ -208,6 +210,7 @@ GitLab CI stages:
 - `heimdall update` is Linux amd64 only; Windows and macOS are out of scope for v1.
 - `bootstrap netbird` assumes a Linux-style host with `curl`, `sh`, `netbird`, and `ip` available on `PATH` after install; it does not configure NetBird management servers.
 - `bootstrap k3s` assumes a Linux-style host with `curl`, `sh`, and `k3s` on `PATH` after install for verification; the upstream installer typically requires root. HA servers, air-gapped installs, and non-upstream install methods are out of scope for this command.
+  - Idempotent skip is `command -v k3s` only: if `k3s` exists but cluster/agent setup incomplete, use **`--force`** to re-run get.k3s.io.
 - `bootstrap user` currently assumes Linux host tools (`sudo`, `getent`, `useradd`, `sed`, `systemctl`, `sshd`).
 - Remote execution backend is not implemented yet (local runner only).
 - Future module contract can be further formalized into explicit plan/apply/verify traits.

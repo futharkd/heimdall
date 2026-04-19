@@ -88,6 +88,9 @@ pub struct BootstrapK3sCommand {
     /// Sets `INSTALL_K3S_SKIP_ENABLE=true` (skip `systemctl enable`).
     #[arg(long)]
     pub skip_enable: bool,
+    /// Re-run get.k3s.io install even when `k3s` is already on `PATH` (default: skip download/install if probe succeeds).
+    #[arg(long)]
+    pub force: bool,
     #[arg(long)]
     pub dry_run: bool,
     #[arg(long)]

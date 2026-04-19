@@ -7,13 +7,19 @@ use crate::runtime::ExitStatus;
 
 use super::execute::execute_plan;
 use super::human::format_report_human;
-use super::input::resolve_inputs;
+use super::input::{probe_k3s_on_path, resolve_inputs};
 use super::plan::build_plan;
 
 pub fn run(opts: BootstrapK3sCommand, global: &GlobalOpts) -> Result<ExitStatus> {
-    let resolved = resolve_inputs(opts)?;
-    let plan = build_plan(&resolved.config)?;
+    let mut resolved = resolve_inputs(opts)?;
     let runner = LocalRunner;
+    if !resolved.config.force && probe_k3s_on_path(&runner) {
+        resolved.config.skip_install = true;
+        eprintln!(
+            "note: k3s found on PATH; skipping get.k3s.io download and install (use --force to re-run installer)"
+        );
+    }
+    let plan = build_plan(&resolved.config)?;
     let io_mode = match (resolved.output, resolved.config.dry_run) {
         (OutputFormat::Human, false) => IoMode::LiveTee,
         _ => IoMode::Buffered,
@@ -76,6 +82,27 @@ mod tests {
         assert_eq!(k3s.version.as_deref(), Some("v1.30.1+k3s1"));
         assert_eq!(k3s.install_exec.as_deref(), Some("--node-name=testnode"));
         assert!(k3s.dry_run);
+        assert!(!k3s.force);
         assert!(matches!(k3s.output, OutputFormat::Json));
+    }
+
+    #[test]
+    fn cli_parses_bootstrap_k3s_force() {
+        let parsed = Cli::try_parse_from([
+            "heimdall",
+            "bootstrap",
+            "k3s",
+            "--force",
+            "--dry-run",
+            "--yes",
+        ])
+        .expect("cli parses");
+        let Command::Bootstrap(bootstrap) = parsed.command else {
+            panic!("expected bootstrap");
+        };
+        let BootstrapAction::K3s(k3s) = bootstrap.action else {
+            panic!("expected k3s");
+        };
+        assert!(k3s.force);
     }
 }

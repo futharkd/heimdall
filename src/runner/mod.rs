@@ -1,3 +1,5 @@
+use std::process::Stdio;
+
 use anyhow::Result;
 
 pub trait CommandRunner {
@@ -15,7 +17,10 @@ pub struct LocalRunner;
 
 impl CommandRunner for LocalRunner {
     fn run(&self, program: &str, args: &[&str]) -> Result<std::process::Output> {
-        let output = std::process::Command::new(program).args(args).output()?;
+        let output = std::process::Command::new(program)
+            .args(args)
+            .stdin(Stdio::inherit())
+            .output()?;
         Ok(output)
     }
 
@@ -30,6 +35,6 @@ impl CommandRunner for LocalRunner {
         for &(key, value) in env {
             command.env(key, value);
         }
-        Ok(command.output()?)
+        Ok(command.stdin(Stdio::inherit()).output()?)
     }
 }

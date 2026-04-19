@@ -63,11 +63,7 @@ pub fn execute_plan(
                 });
             }
             Ok(output) => {
-                let detail = format!(
-                    "exit status {}: {}",
-                    output.status,
-                    String::from_utf8_lossy(&output.stderr).trim()
-                );
+                let detail = format_command_failure(&output);
                 if operation.failure_is_warning {
                     results.push(OperationResult {
                         id: operation.id,
@@ -110,6 +106,48 @@ pub fn execute_plan(
     BootstrapNetbirdReport {
         operations: results,
     }
+}
+
+const FAILURE_OUTPUT_CAP: usize = 8192;
+
+fn format_command_failure(output: &std::process::Output) -> String {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout_trim = stdout.trim();
+    let stderr_trim = stderr.trim();
+
+    let mut body = String::new();
+    if !stderr_trim.is_empty() {
+        body.push_str("stderr: ");
+        body.push_str(&cap_utf8(stderr_trim, FAILURE_OUTPUT_CAP / 2));
+    }
+    if !stdout_trim.is_empty() {
+        if !body.is_empty() {
+            body.push_str("; ");
+        }
+        body.push_str("stdout: ");
+        body.push_str(&cap_utf8(stdout_trim, FAILURE_OUTPUT_CAP / 2));
+    }
+    if body.is_empty() {
+        body.push_str("(no stdout/stderr captured)");
+    }
+
+    format!("exit status {}: {}", output.status, body)
+}
+
+fn cap_utf8(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+    let mut end = max_bytes;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!(
+        "{}… ({} more bytes)",
+        &text[..end],
+        text.len().saturating_sub(end)
+    )
 }
 
 fn status_stdout_looks_connected(text: &str) -> bool {
@@ -174,7 +212,9 @@ fn redacted_args(id: &str, args: &[String]) -> Vec<String> {
 mod tests {
     use std::path::PathBuf;
 
-    use super::{execute_plan, format_dry_run_detail, status_stdout_looks_connected};
+    use super::{
+        execute_plan, format_command_failure, format_dry_run_detail, status_stdout_looks_connected,
+    };
     use crate::features::bootstrap::netbird::input::BootstrapNetbirdConfig;
     use crate::features::bootstrap::netbird::plan::NetbirdPlannedOperation;
     use crate::runner::CommandRunner;
@@ -249,6 +289,30 @@ mod tests {
     fn status_parse_accepts_official_style_lines() {
         let text = "Foo\nManagement: Connected\nSignal: Connected\n";
         assert!(status_stdout_looks_connected(text));
+    }
+
+    #[test]
+    fn format_command_failure_includes_stdout_when_stderr_empty() {
+        let output = std::process::Output {
+            status: std::os::unix::process::ExitStatusExt::from_raw(1),
+            stdout: b"install script wrote this to stdout\n".to_vec(),
+            stderr: vec![],
+        };
+        let detail = format_command_failure(&output);
+        assert!(detail.contains("stdout: install script wrote this to stdout"));
+        assert!(!detail.contains("stderr:"));
+    }
+
+    #[test]
+    fn format_command_failure_joins_stderr_and_stdout() {
+        let output = std::process::Output {
+            status: std::os::unix::process::ExitStatusExt::from_raw(7),
+            stdout: b"out\n".to_vec(),
+            stderr: b"err\n".to_vec(),
+        };
+        let detail = format_command_failure(&output);
+        assert!(detail.contains("stderr: err"));
+        assert!(detail.contains("stdout: out"));
     }
 
     #[test]

@@ -64,7 +64,7 @@ When risky auth changes are requested (`--disable-root-login` and/or `--disable-
 Heimdall does **not** reimplement NetBird packaging. It:
 
 1. Downloads `https://pkgs.netbird.io/install.sh` to a temp file (no `curl | sh` pipe).
-2. Runs that script with the same environment variables the upstream installer supports (`NETBIRD_RELEASE`, optional `SKIP_UI_APP`, optional `GITHUB_TOKEN` from your environment only).
+2. Runs that script with the same environment variables the upstream installer supports (`NETBIRD_RELEASE`, optional `SKIP_UI_APP`, optional `GITHUB_TOKEN` from your environment only). Run from a normal terminal when possible: the upstream installer may invoke `sudo` or a package manager and expect an interactive TTY; for headless hosts prefer a setup key and NetBird’s unattended guidance.
 3. Runs **`netbird up`** with optional **`--setup-key`** / **`--management-url`** (flags or environment variables below).
 4. Runs **`netbird status`** and checks for `Management: Connected` and `Signal: Connected`, then optionally probes `wt0` (non-fatal if missing).
 

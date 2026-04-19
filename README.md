@@ -115,18 +115,26 @@ cargo test --all-targets --all-features
 
 CI builds `heimdall-linux-amd64` and publishes it to the GitLab Generic Package Registry.
 
-Main branch publishes a rolling `latest` package:
+Main branch publishes a rolling `latest` package. Quick install (Linux x86_64 only; downloads the binary and `.sha256`, verifies the hash, installs to `/usr/local/bin` as root or `~/.local/bin` otherwise):
+
+```bash
+curl -fsSL "https://gitlab.com/futharkd/heimdall/-/raw/main/scripts/install.sh" | sh
+```
+
+Private registry / rate limits: export `GITLAB_TOKEN` or `PRIVATE_TOKEN` before running the command (same as `heimdall update`).
+
+Tagged releases publish a versioned package (`<TAG>`). Install that channel with:
+
+```bash
+curl -fsSL "https://gitlab.com/futharkd/heimdall/-/raw/main/scripts/install.sh" | env HEIMDALL_VERSION="<TAG>" sh
+```
+
+Manual download (equivalent to what the script does):
 
 ```bash
 wget "https://gitlab.com/api/v4/projects/futharkd%2Fheimdall/packages/generic/heimdall/latest/heimdall-linux-amd64" -O heimdall
 chmod +x heimdall
 ./heimdall verify doctor
-```
-
-Tagged releases publish a versioned package (`<TAG>`):
-
-```bash
-wget "https://gitlab.com/api/v4/projects/futharkd%2Fheimdall/packages/generic/heimdall/<TAG>/heimdall-linux-amd64" -O heimdall
 ```
 
 Checksum file is published alongside the binary as `heimdall-linux-amd64.sha256`.

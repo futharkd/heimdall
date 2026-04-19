@@ -127,11 +127,19 @@ Notes:
 
 ## Quality gates and CI
 
-GitLab CI runs Rust quality checks in `test` stage:
+GitLab CI stages:
 
-- `cargo fmt --check`
-- `cargo clippy --all-targets --all-features -- -D warnings`
-- `cargo test --all-targets --all-features`
+- `test`:
+  - `cargo fmt --check`
+  - `cargo clippy --all-targets --all-features -- -D warnings`
+  - `cargo test --all-targets --all-features`
+- `build`:
+  - `cargo build --release`
+  - publishes `dist/heimdall-linux-amd64` and `.sha256` as job artifacts
+- `publish`:
+  - uploads binary + checksum to GitLab Generic Package Registry
+  - `main` branch => `heimdall/latest`
+  - tags => `heimdall/<tag>`
 
 ## Current test coverage
 

@@ -76,6 +76,26 @@ Test:
 cargo test --all-targets --all-features
 ```
 
+## Binary distribution (GitLab CI)
+
+CI builds `heimdall-linux-amd64` and publishes it to the GitLab Generic Package Registry.
+
+Main branch publishes a rolling `latest` package:
+
+```bash
+wget "https://gitlab.com/api/v4/projects/<PROJECT_ID>/packages/generic/heimdall/latest/heimdall-linux-amd64" -O heimdall
+chmod +x heimdall
+./heimdall verify doctor
+```
+
+Tagged releases publish a versioned package (`<TAG>`):
+
+```bash
+wget "https://gitlab.com/api/v4/projects/<PROJECT_ID>/packages/generic/heimdall/<TAG>/heimdall-linux-amd64" -O heimdall
+```
+
+Checksum file is published alongside the binary as `heimdall-linux-amd64.sha256`.
+
 ## Roadmap
 
 - Implement bootstrap and hardening modules behind the scaffolded command tree.

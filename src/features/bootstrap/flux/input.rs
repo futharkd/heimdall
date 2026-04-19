@@ -56,9 +56,7 @@ fn resolve_git_url(opts: &BootstrapFluxCommand) -> Result<String> {
         );
     }
     loop {
-        let line = prompt(
-            "Git SSH clone URL (e.g. ssh://git@gitlab.com/group/repo.git): ",
-        )?;
+        let line = prompt("Git SSH clone URL (e.g. ssh://git@gitlab.com/group/repo.git): ")?;
         let t = line.trim();
         if t.is_empty() {
             eprintln!("A non-empty SSH Git URL is required.");
@@ -251,8 +249,7 @@ mod tests {
     #[test]
     fn git_url_from_opts_trims_flag() {
         assert_eq!(
-            git_url_from_opts_and_env(&flux_cmd(Some("  ssh://git@x/y.git  ")))
-                .as_deref(),
+            git_url_from_opts_and_env(&flux_cmd(Some("  ssh://git@x/y.git  "))).as_deref(),
             Some("ssh://git@x/y.git")
         );
     }

@@ -32,6 +32,12 @@
   - Creates/ensures admin user and group, provisions SSH keys, and can apply guarded SSH auth hardening.
   - Supports interactive prompts for missing input.
   - Supports `--dry-run`, `--yes`, and `--output human|json`.
+- `heimdall bootstrap netbird`
+  - Implemented.
+  - Delegates install to the official `https://pkgs.netbird.io/install.sh` (downloaded to a temp file, then executed with `NETBIRD_RELEASE` / optional `SKIP_UI_APP` / optional `GITHUB_TOKEN` from the environment).
+  - Join uses the official CLI: `netbird up` with optional `--setup-key` and `--management-url` (from flags or `NETBIRD_SETUP_KEY` / `NETBIRD_MANAGEMENT_URL`).
+  - Verify runs `netbird status` and requires `Management: Connected` and `Signal: Connected` in output; `ip link show wt0` is best-effort (warning if absent).
+  - Dry-run redacts sensitive env vars and `--setup-key` values in reported command lines.
 - `heimdall bootstrap flux`
   - Placeholder only (returns warning status).
 - `heimdall harden ssh`
@@ -46,6 +52,7 @@ Heimdall now uses a hybrid architecture: feature-first folders for domain logic 
 - `src/commands`: thin route dispatch only.
 - `src/features`: feature-owned command + behavior implementation.
   - `src/features/bootstrap/user`: `input`, `validate`, `plan`, `execute`, `report`, `command`
+  - `src/features/bootstrap/netbird`: `input`, `validate`, `plan`, `execute`, `report`, `command`
   - `src/features/verify/doctor`: `checks`, `report`, `command`
 - `src/core`: shared execution contracts/types (operation status/results/plans).
 - `src/output`: human-readable output formatting.
@@ -146,6 +153,7 @@ GitLab CI stages:
 - CLI parse tests:
   - `verify doctor --output json`
   - `bootstrap user` flags parsing
+  - `bootstrap netbird` flags parsing
 - `bootstrap user` feature tests:
   - invalid key rejection
   - missing key plan failure
@@ -154,10 +162,15 @@ GitLab CI stages:
   - confirmation-gated risky step skipping
 - `verify doctor` feature tests:
   - failure detection in report
+- `bootstrap netbird` feature tests:
+  - plan uses official install URL and passes `NETBIRD_RELEASE` / `SKIP_UI_APP` into the install step
+  - dry-run output redacts `GITHUB_TOKEN` and `--setup-key` arguments
+  - `netbird status` output parsing for connected management/signal lines
 
 ## Known limitations / next steps
 
 - `bootstrap flux` and `harden ssh` are not implemented yet.
+- `bootstrap netbird` assumes a Linux-style host with `curl`, `sh`, `netbird`, and `ip` available on `PATH` after install; it does not configure NetBird management servers.
 - `bootstrap user` currently assumes Linux host tools (`sudo`, `getent`, `useradd`, `sed`, `systemctl`, `sshd`).
 - Remote execution backend is not implemented yet (local runner only).
 - Future module contract can be further formalized into explicit plan/apply/verify traits.

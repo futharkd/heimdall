@@ -14,6 +14,7 @@ pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
                 println!("bootstrap flux is scaffolded but not implemented yet");
                 Ok(ExitStatus::Warning)
             }
+            BootstrapAction::Netbird(opts) => bootstrap::netbird::command::run(opts),
             BootstrapAction::User(opts) => bootstrap::user::command::run(opts),
         },
         Command::Harden(cmd) => match cmd.action {

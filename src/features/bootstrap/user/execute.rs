@@ -89,7 +89,16 @@ mod tests {
     }
 
     impl CommandRunner for MockRunner {
-        fn run(&self, _program: &str, _args: &[&str]) -> Result<std::process::Output> {
+        fn run(&self, program: &str, args: &[&str]) -> Result<std::process::Output> {
+            self.run_with_env(program, args, &[])
+        }
+
+        fn run_with_env(
+            &self,
+            _program: &str,
+            _args: &[&str],
+            _env: &[(&str, &str)],
+        ) -> Result<std::process::Output> {
             let mut guard = self.calls.lock().expect("lock");
             *guard += 1;
             if self.fail_after.is_some_and(|n| *guard >= n) {

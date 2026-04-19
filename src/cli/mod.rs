@@ -24,6 +24,7 @@ pub enum Command {
 #[derive(Debug, Subcommand)]
 pub enum BootstrapAction {
     Flux,
+    Netbird(BootstrapNetbirdCommand),
     User(BootstrapUserCommand),
 }
 
@@ -31,6 +32,28 @@ pub enum BootstrapAction {
 pub struct BootstrapCommand {
     #[command(subcommand)]
     pub action: BootstrapAction,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct BootstrapNetbirdCommand {
+    /// Skip NetBird UI packages (maps to SKIP_UI_APP for the official install script).
+    #[arg(long)]
+    pub skip_ui: bool,
+    /// NetBird release version or `latest` (maps to NETBIRD_RELEASE).
+    #[arg(long)]
+    pub release: Option<String>,
+    /// Setup key for headless join (prefer env NETBIRD_SETUP_KEY in CI).
+    #[arg(long)]
+    pub setup_key: Option<String>,
+    /// Self-hosted management service URL (prefer env NETBIRD_MANAGEMENT_URL).
+    #[arg(long)]
+    pub management_url: Option<String>,
+    #[arg(long)]
+    pub dry_run: bool,
+    #[arg(long)]
+    pub yes: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
 }
 
 #[derive(Debug, clap::Args)]

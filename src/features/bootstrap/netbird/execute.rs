@@ -1,5 +1,5 @@
 use crate::core::operation::{OperationResult, OperationStatus};
-use crate::runner::CommandRunner;
+use crate::runner::{CommandRunner, IoMode};
 
 use super::input::BootstrapNetbirdConfig;
 use super::plan::NetbirdPlannedOperation;
@@ -9,6 +9,7 @@ pub fn execute_plan(
     runner: &dyn CommandRunner,
     config: &BootstrapNetbirdConfig,
     operations: &[NetbirdPlannedOperation],
+    io_mode: IoMode,
 ) -> BootstrapNetbirdReport {
     let mut results = Vec::with_capacity(operations.len());
 
@@ -31,9 +32,9 @@ pub fn execute_plan(
             .collect();
 
         let outcome = if operation.env.is_empty() {
-            runner.run(&operation.command, &arg_refs)
+            runner.run_with_env_io(&operation.command, &arg_refs, &[], io_mode)
         } else {
-            runner.run_with_env(&operation.command, &arg_refs, &env_refs)
+            runner.run_with_env_io(&operation.command, &arg_refs, &env_refs, io_mode)
         };
 
         match outcome {
@@ -217,20 +218,17 @@ mod tests {
     };
     use crate::features::bootstrap::netbird::input::BootstrapNetbirdConfig;
     use crate::features::bootstrap::netbird::plan::NetbirdPlannedOperation;
-    use crate::runner::CommandRunner;
+    use crate::runner::{CommandRunner, IoMode};
 
     struct MockRunner;
 
     impl CommandRunner for MockRunner {
-        fn run(&self, program: &str, args: &[&str]) -> anyhow::Result<std::process::Output> {
-            self.run_with_env(program, args, &[])
-        }
-
-        fn run_with_env(
+        fn run_with_env_io(
             &self,
             program: &str,
             args: &[&str],
             _env: &[(&str, &str)],
+            _mode: IoMode,
         ) -> anyhow::Result<std::process::Output> {
             if program == "netbird" && args.first() == Some(&"status") {
                 return Ok(std::process::Output {
@@ -361,7 +359,7 @@ mod tests {
                 failure_is_warning: false,
             },
         ];
-        let report = execute_plan(&MockRunner, &config, &plan);
+        let report = execute_plan(&MockRunner, &config, &plan, IoMode::Buffered);
         assert!(!report.has_failures());
     }
 }

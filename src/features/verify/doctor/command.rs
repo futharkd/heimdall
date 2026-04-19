@@ -1,16 +1,27 @@
 use anyhow::Result;
 
-use crate::cli::{OutputFormat, VerifyDoctorCommand};
-use crate::output::render_doctor_human;
+use crate::cli::{GlobalOpts, OutputFormat, VerifyDoctorCommand};
+use crate::output::Style;
+use crate::runner::IoMode;
 use crate::runtime::ExitStatus;
 
 use super::checks;
+use super::human::format_report_human;
 
-pub fn run(opts: VerifyDoctorCommand) -> Result<ExitStatus> {
-    let report = checks::run();
+pub fn run(opts: VerifyDoctorCommand, global: &GlobalOpts) -> Result<ExitStatus> {
+    let io_mode = match opts.output {
+        OutputFormat::Human => IoMode::LiveTee,
+        OutputFormat::Json => IoMode::Buffered,
+    };
+    let report = checks::run(io_mode);
+
+    let style = match opts.output {
+        OutputFormat::Human => Style::for_human(global.color),
+        OutputFormat::Json => Style::plain(),
+    };
 
     match opts.output {
-        OutputFormat::Human => println!("{}", render_doctor_human(&report)),
+        OutputFormat::Human => println!("{}", format_report_human(&report, &style)),
         OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
     }
 

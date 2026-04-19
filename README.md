@@ -20,8 +20,9 @@ The codebase is organized by responsibility:
 - `src/features`: bootstrap, verify, and update flows (`bootstrap/user`, `bootstrap/netbird`, `verify/doctor`, `update`, …)
 - `src/core`: shared operation types for planned steps and reports
 - `src/runtime`: initialization and exit status conventions
-- `src/output`: human and machine output formatting helpers
-- `src/runner`: command-runner abstractions
+- `src/output`: shared styling only (`style.rs`: `--color`, `NO_COLOR`, ANSI helpers)
+- `src/runner`: command-runner abstractions (`IoMode::LiveTee` streams child stdout/stderr while still capturing for reports)
+- Human report layout lives next to each feature (`human.rs` under `verify/doctor`, `bootstrap/*`, `update`)
 
 ## Quick start
 
@@ -39,6 +40,14 @@ JSON output:
 
 ```bash
 cargo run -- verify doctor --output json
+```
+
+Human output uses subtle ANSI colors when stderr is a TTY. Override with **`--color auto|always|never`** (global, before any subcommand). Set **`NO_COLOR`** in the environment to disable color regardless of `--color`. JSON mode never prints ANSI escapes.
+
+In **`--output human`** without `--dry-run`, external commands (`curl`, NetBird’s installer, `netbird`, bootstrap shell steps, etc.) **stream stdout/stderr live** to your terminal while Heimdall still records output for the final report. Dry-run and JSON stay fully buffered.
+
+```bash
+cargo run -- --color never verify doctor
 ```
 
 Bootstrap user (non-interactive):

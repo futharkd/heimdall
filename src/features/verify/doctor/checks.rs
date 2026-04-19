@@ -1,15 +1,15 @@
-use crate::runner::{CommandRunner, LocalRunner};
+use crate::runner::{CommandRunner, IoMode, LocalRunner};
 
 use super::report::{CheckStatus, DoctorCheck, DoctorReport};
 
-pub fn run() -> DoctorReport {
-    let checks = vec![cargo_available(), cwd_readable(), git_repo_present()];
+pub fn run(io_mode: IoMode) -> DoctorReport {
+    let checks = vec![cargo_available(io_mode), cwd_readable(), git_repo_present()];
     DoctorReport { checks }
 }
 
-fn cargo_available() -> DoctorCheck {
+fn cargo_available(io_mode: IoMode) -> DoctorCheck {
     let runner = LocalRunner;
-    match runner.run("cargo", &["--version"]) {
+    match runner.run_with_env_io("cargo", &["--version"], &[], io_mode) {
         Ok(output) if output.status.success() => DoctorCheck {
             id: "cargo_available",
             description: "Cargo executable is available",

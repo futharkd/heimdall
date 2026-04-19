@@ -1,22 +1,32 @@
 use anyhow::Result;
 
-use crate::cli::{BootstrapUserCommand, OutputFormat};
-use crate::output::render_bootstrap_user_human;
-use crate::runner::LocalRunner;
+use crate::cli::{BootstrapUserCommand, GlobalOpts, OutputFormat};
+use crate::output::Style;
+use crate::runner::{IoMode, LocalRunner};
 use crate::runtime::ExitStatus;
 
 use super::execute::execute_plan;
+use super::human::format_report_human;
 use super::input::resolve_inputs;
 use super::plan::build_plan;
 
-pub fn run(opts: BootstrapUserCommand) -> Result<ExitStatus> {
+pub fn run(opts: BootstrapUserCommand, global: &GlobalOpts) -> Result<ExitStatus> {
     let resolved = resolve_inputs(opts)?;
     let plan = build_plan(&resolved.config)?;
     let runner = LocalRunner;
-    let report = execute_plan(&runner, &resolved.config, &plan);
+    let io_mode = match (resolved.output, resolved.config.dry_run) {
+        (OutputFormat::Human, false) => IoMode::LiveTee,
+        _ => IoMode::Buffered,
+    };
+    let report = execute_plan(&runner, &resolved.config, &plan, io_mode);
+
+    let style = match resolved.output {
+        OutputFormat::Human => Style::for_human(global.color),
+        OutputFormat::Json => Style::plain(),
+    };
 
     match resolved.output {
-        OutputFormat::Human => println!("{}", render_bootstrap_user_human(&report)),
+        OutputFormat::Human => println!("{}", format_report_human(&report, &style)),
         OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
     }
 

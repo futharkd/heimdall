@@ -59,14 +59,14 @@ Heimdall now uses a hybrid architecture: feature-first folders for domain logic 
 - `src/cli`: clap command tree and argument models.
 - `src/commands`: thin route dispatch only.
 - `src/features`: feature-owned command + behavior implementation.
-  - `src/features/bootstrap/user`: `input`, `validate`, `plan`, `execute`, `report`, `command`
-  - `src/features/bootstrap/netbird`: `input`, `validate`, `plan`, `execute`, `report`, `command`
-  - `src/features/verify/doctor`: `checks`, `report`, `command`
-  - `src/features/update`: `package`, `checksum`, `input`, `execute`, `report`, `command`
+  - `src/features/bootstrap/user`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
+  - `src/features/bootstrap/netbird`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
+  - `src/features/verify/doctor`: `checks`, `report`, `human`, `command`
+  - `src/features/update`: `package`, `checksum`, `input`, `execute`, `report`, `human`, `command`
 - `src/core`: shared execution contracts/types (operation status/results/plans).
-- `src/output`: human-readable output formatting.
+- `src/output`: shared `Style` / `--color` / `NO_COLOR` handling (`style.rs`); per-feature human formatting lives under `src/features/.../human.rs`.
 - `src/runtime`: exit status and tracing bootstrap.
-- `src/runner`: command execution abstraction (`CommandRunner`, `LocalRunner`).
+- `src/runner`: command execution abstraction (`CommandRunner`, `LocalRunner`, `IoMode` with `LiveTee` for live child I/O plus capture).
 
 ## Implemented workflows
 
@@ -122,12 +122,10 @@ Safety behavior:
 
 ## Output model
 
-- Human output:
-  - `verify doctor`: pass/warn/fail lines
-  - `bootstrap user`: per-operation plan/skip/ok/fail lines
-  - `heimdall update`: channel, URLs, digests, per-operation plan/skip/ok/fail lines
-- JSON output:
-  - serialized report structs via `serde`
+- Global **`--color auto|always|never`** (flattened on the root CLI). **`NO_COLOR`** disables ANSI. **`--output json`** never emits ANSI in printed JSON.
+- Human reports: each feature formats via its own `human.rs` using shared `Style` (status tokens and headings colored; long opaque details like digests stay uncolored).
+- **`IoMode::LiveTee`**: for human non-dry-run flows, subprocess stdout/stderr are copied to the terminal as data arrives and still accumulated for parsing / final report lines. Dry-run and JSON use buffered capture only.
+- JSON output: serialized report structs via `serde`.
 
 ## Exit status model
 

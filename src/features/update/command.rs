@@ -1,21 +1,31 @@
 use anyhow::Result;
 
-use crate::cli::{OutputFormat, UpdateCommand};
-use crate::output::render_update_human;
-use crate::runner::LocalRunner;
+use crate::cli::{GlobalOpts, OutputFormat, UpdateCommand};
+use crate::output::Style;
+use crate::runner::{IoMode, LocalRunner};
 use crate::runtime::ExitStatus;
 
 use super::execute::execute_update;
+use super::human::format_report_human;
 use super::input::resolve_inputs;
 
-pub fn run(opts: UpdateCommand) -> Result<ExitStatus> {
+pub fn run(opts: UpdateCommand, global: &GlobalOpts) -> Result<ExitStatus> {
     let config = resolve_inputs(opts)?;
     let output = config.output;
     let runner = LocalRunner;
-    let report = execute_update(&runner, &config);
+    let io_mode = match (output, config.dry_run) {
+        (OutputFormat::Human, false) => IoMode::LiveTee,
+        _ => IoMode::Buffered,
+    };
+    let report = execute_update(&runner, &config, io_mode);
+
+    let style = match output {
+        OutputFormat::Human => Style::for_human(global.color),
+        OutputFormat::Json => Style::plain(),
+    };
 
     match output {
-        OutputFormat::Human => println!("{}", render_update_human(&report)),
+        OutputFormat::Human => println!("{}", format_report_human(&report, &style)),
         OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
     }
 

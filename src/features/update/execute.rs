@@ -7,14 +7,18 @@ use anyhow::{Context, Result};
 use std::os::unix::fs::PermissionsExt;
 
 use crate::core::operation::{OperationResult, OperationStatus};
-use crate::runner::CommandRunner;
+use crate::runner::{CommandRunner, IoMode};
 
 use super::checksum::{hex_lower, parse_sha256sum_file, sha256_bytes, sha256_file};
 use super::input::UpdateConfig;
 use super::report::UpdateReport;
 
-pub fn execute_update(runner: &dyn CommandRunner, config: &UpdateConfig) -> UpdateReport {
-    match run_update(runner, config) {
+pub fn execute_update(
+    runner: &dyn CommandRunner,
+    config: &UpdateConfig,
+    io_mode: IoMode,
+) -> UpdateReport {
+    match run_update(runner, config, io_mode) {
         Ok(report) => report,
         Err(err) => UpdateReport {
             channel: config.package_version.clone(),
@@ -33,7 +37,11 @@ pub fn execute_update(runner: &dyn CommandRunner, config: &UpdateConfig) -> Upda
     }
 }
 
-fn run_update(runner: &dyn CommandRunner, config: &UpdateConfig) -> Result<UpdateReport> {
+fn run_update(
+    runner: &dyn CommandRunner,
+    config: &UpdateConfig,
+    io_mode: IoMode,
+) -> Result<UpdateReport> {
     let mut operations = Vec::new();
 
     let workdir = config
@@ -51,7 +59,7 @@ fn run_update(runner: &dyn CommandRunner, config: &UpdateConfig) -> Result<Updat
         &tmp_checksum,
         config.gitlab_token.as_deref(),
     );
-    let outcome = run_curl(runner, &curl_args);
+    let outcome = run_curl(runner, &curl_args, io_mode);
     match outcome {
         Ok(()) => {
             operations.push(OperationResult {
@@ -185,7 +193,7 @@ fn run_update(runner: &dyn CommandRunner, config: &UpdateConfig) -> Result<Updat
         &tmp_binary,
         config.gitlab_token.as_deref(),
     );
-    match run_curl(runner, &binary_args) {
+    match run_curl(runner, &binary_args, io_mode) {
         Ok(()) => {
             operations.push(OperationResult {
                 id: "download_binary",
@@ -312,9 +320,9 @@ fn curl_download_args(url: &str, dest: &Path, token: Option<&str>) -> Vec<String
     args
 }
 
-fn run_curl(runner: &dyn CommandRunner, args: &[String]) -> Result<(), String> {
+fn run_curl(runner: &dyn CommandRunner, args: &[String], io_mode: IoMode) -> Result<(), String> {
     let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    match runner.run("curl", &arg_refs) {
+    match runner.run_with_env_io("curl", &arg_refs, &[], io_mode) {
         Ok(output) if output.status.success() => Ok(()),
         Ok(output) => Err(format!(
             "curl exit {}: {}",
@@ -420,7 +428,7 @@ mod tests {
     use crate::core::operation::OperationStatus;
     use crate::features::update::checksum::{hex_lower, sha256_bytes};
     use crate::features::update::input::UpdateConfig;
-    use crate::runner::CommandRunner;
+    use crate::runner::{CommandRunner, IoMode};
 
     #[test]
     fn redact_curl_headers_masks_private_token() {
@@ -459,15 +467,12 @@ mod tests {
     }
 
     impl CommandRunner for RecordingRunner {
-        fn run(&self, program: &str, args: &[&str]) -> anyhow::Result<std::process::Output> {
-            self.run_with_env(program, args, &[])
-        }
-
-        fn run_with_env(
+        fn run_with_env_io(
             &self,
             program: &str,
             args: &[&str],
             _env: &[(&str, &str)],
+            _mode: IoMode,
         ) -> anyhow::Result<std::process::Output> {
             self.calls
                 .borrow_mut()
@@ -545,7 +550,11 @@ mod tests {
             binary_body: b"ignored".to_vec(),
         };
 
-        let report = execute_update(&runner, &sample_config(exe, false, false, true));
+        let report = execute_update(
+            &runner,
+            &sample_config(exe, false, false, true),
+            IoMode::Buffered,
+        );
         assert!(!report.has_failures());
         assert_eq!(calls.borrow().len(), 1);
         let details: String = report
@@ -579,7 +588,11 @@ mod tests {
             binary_body: b"same-bytes".to_vec(),
         };
 
-        let report = execute_update(&runner, &sample_config(exe.clone(), true, false, true));
+        let report = execute_update(
+            &runner,
+            &sample_config(exe.clone(), true, false, true),
+            IoMode::Buffered,
+        );
         assert!(!report.has_failures());
         assert_eq!(calls.borrow().len(), 2);
 
@@ -607,7 +620,11 @@ mod tests {
             binary_body: b"nope".to_vec(),
         };
 
-        let report = execute_update(&runner, &sample_config(exe, true, true, true));
+        let report = execute_update(
+            &runner,
+            &sample_config(exe, true, true, true),
+            IoMode::Buffered,
+        );
         assert!(!report.has_failures());
         assert_eq!(calls.borrow().len(), 1);
         let planned = report

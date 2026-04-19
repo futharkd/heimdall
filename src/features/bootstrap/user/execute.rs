@@ -1,5 +1,5 @@
 use crate::core::operation::{OperationResult, OperationStatus, PlannedOperation};
-use crate::runner::CommandRunner;
+use crate::runner::{CommandRunner, IoMode};
 
 use super::input::BootstrapUserConfig;
 use super::report::BootstrapUserReport;
@@ -8,6 +8,7 @@ pub fn execute_plan(
     runner: &dyn CommandRunner,
     config: &BootstrapUserConfig,
     operations: &[PlannedOperation],
+    io_mode: IoMode,
 ) -> BootstrapUserReport {
     let mut results = Vec::with_capacity(operations.len());
 
@@ -37,7 +38,7 @@ pub fn execute_plan(
         }
 
         let arg_refs: Vec<&str> = operation.args.iter().map(String::as_str).collect();
-        match runner.run(&operation.command, &arg_refs) {
+        match runner.run_with_env_io(&operation.command, &arg_refs, &[], io_mode) {
             Ok(output) if output.status.success() => results.push(OperationResult {
                 id: operation.id,
                 description: operation.description,
@@ -81,7 +82,7 @@ mod tests {
     use super::execute_plan;
     use crate::features::bootstrap::user::input::BootstrapUserConfig;
     use crate::features::bootstrap::user::plan::build_plan;
-    use crate::runner::CommandRunner;
+    use crate::runner::{CommandRunner, IoMode};
 
     struct MockRunner {
         fail_after: Option<usize>,
@@ -89,15 +90,12 @@ mod tests {
     }
 
     impl CommandRunner for MockRunner {
-        fn run(&self, program: &str, args: &[&str]) -> Result<std::process::Output> {
-            self.run_with_env(program, args, &[])
-        }
-
-        fn run_with_env(
+        fn run_with_env_io(
             &self,
             _program: &str,
             _args: &[&str],
             _env: &[(&str, &str)],
+            _mode: IoMode,
         ) -> Result<std::process::Output> {
             let mut guard = self.calls.lock().expect("lock");
             *guard += 1;
@@ -136,7 +134,7 @@ mod tests {
             fail_after: Some(2),
             calls: std::sync::Mutex::new(0),
         };
-        let report = execute_plan(&runner, &c, &plan);
+        let report = execute_plan(&runner, &c, &plan, IoMode::Buffered);
         assert!(report.has_failures());
     }
 
@@ -149,7 +147,7 @@ mod tests {
             fail_after: None,
             calls: std::sync::Mutex::new(0),
         };
-        let report = execute_plan(&runner, &c, &plan);
+        let report = execute_plan(&runner, &c, &plan, IoMode::Buffered);
         assert!(
             report
                 .operations

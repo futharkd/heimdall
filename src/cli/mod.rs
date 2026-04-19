@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 
+use crate::output::ColorArg;
+
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum OutputFormat {
     #[default]
@@ -18,8 +20,17 @@ pub enum NetbirdInstallMethod {
 }
 
 #[derive(Debug, Parser)]
+pub struct GlobalOpts {
+    /// When to emit ANSI colors in human reports (`NO_COLOR` in the environment always disables).
+    #[arg(long, value_enum, default_value_t = ColorArg::Auto, global = true)]
+    pub color: ColorArg,
+}
+
+#[derive(Debug, Parser)]
 #[command(name = "heimdall", version, about = "Modular infrastructure CLI")]
 pub struct Cli {
+    #[command(flatten)]
+    pub global: GlobalOpts,
     #[command(subcommand)]
     pub command: Command,
 }

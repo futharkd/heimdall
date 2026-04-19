@@ -2,11 +2,11 @@
 
 ## Prerequisites
 
-- Rust toolchain with support for edition 2024
+- Rust **1.94** or newer (`rust-version` in [`Cargo.toml`](Cargo.toml); edition **2024**)
 
 ## Local checks
 
-Run these before opening a merge request:
+CI runs the same gates. Run before opening a merge request:
 
 ```bash
 cargo fmt --check
@@ -14,15 +14,36 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --all-features
 ```
 
-## Code organization
+See [`.gitlab-ci.yml`](.gitlab-ci.yml) for the exact job definitions (fmt, clippy, test, release build).
 
-- Keep command parsing in `src/cli`.
-- Keep orchestration in `src/commands`.
-- Keep reusable behavior in `src/modules`.
-- Keep output rendering in `src/output`.
+## Releases and CI
 
-## Command design principles
+- **Build**: CI produces `heimdall-linux-amd64` + `.sha256` and uploads them to the **GitLab Generic Package Registry** (`latest` from `main`, or the tag name for tagged commits).
+- **Install script**: [`scripts/install.sh`](scripts/install.sh) — the README `curl … | sh` one-liners wrap this.
 
-- Prefer non-mutating verification workflows first.
-- Keep command handlers thin and delegate to modules.
-- Return clear exit codes for automation compatibility.
+## Where code lives
+
+- **`src/cli`** — clap models and the subcommand tree
+- **`src/commands`** — thin dispatch only; no heavy logic here
+- **`src/features`** — behavior per domain (`bootstrap/*`, `verify/*`, `update`, …). New bootstrap flows usually mirror an existing folder: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
+- **`src/core`** — shared operation / report types used by plans
+- **`src/runner`** — `CommandRunner` and subprocess I/O (`IoMode::LiveTee`, etc.)
+- **`src/runtime`** — tracing bootstrap and exit status mapping
+- **`src/output`** — shared styling (`--color`, `NO_COLOR`); per-feature human formatting stays under `src/features/.../human.rs`
+
+## Specs and README
+
+- **[`SPECS.md`](SPECS.md)** — canonical description of commands, flags, safety behavior, and known limitations. Update it when behavior or contracts change.
+- **[`README.md`](README.md)** — user-facing quick start; keep it aligned with shipped commands when you add or change the CLI surface.
+
+## Design notes
+
+- Prefer **non-mutating** verify paths; mutating flows should support **`--dry-run`** and clear confirmation where appropriate.
+- Keep **command handlers thin**; resolve inputs → build plan → execute → format report.
+- Use **deterministic exit codes** and structured **`--output json`** where the feature already exposes reports (match existing features).
+
+## Rough roadmap
+
+- Implement scaffolded commands (`bootstrap flux`, `harden ssh`, …).
+- Tighter plan/apply/verify contracts per feature where it pays off.
+- Optional remote execution backend (today everything is local `CommandRunner`).

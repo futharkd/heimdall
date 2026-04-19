@@ -14,6 +14,16 @@ pub struct FluxPlannedOperation {
     pub failure_is_warning: bool,
 }
 
+fn sudo_wrap_flux(args: Vec<String>, kube_elevated: bool) -> (String, Vec<String>) {
+    if kube_elevated {
+        let mut prefixed = vec!["flux".to_string()];
+        prefixed.extend(args);
+        ("sudo".to_string(), prefixed)
+    } else {
+        ("flux".to_string(), args)
+    }
+}
+
 pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<FluxPlannedOperation>> {
     let kube_env = super::input::kube_env(&config.kubeconfig);
 
@@ -79,28 +89,33 @@ pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<FluxPlannedOperati
         bootstrap_args.push(pass.clone());
     }
 
+    let (bootstrap_cmd, bootstrap_cmd_args) = sudo_wrap_flux(bootstrap_args, config.kube_elevated);
+
     ops.push(FluxPlannedOperation {
         id: "flux_bootstrap_git",
         description: "Flux bootstrap git (SSH deploy key; commits manifests and configures cluster)",
-        command: "flux".to_string(),
-        args: bootstrap_args,
+        command: bootstrap_cmd,
+        args: bootstrap_cmd_args,
         env: kube_env.clone(),
         failure_is_warning: false,
     });
 
+    let get_args = vec![
+        "get".to_string(),
+        "kustomization".to_string(),
+        FLUX_SYNC_NAME.to_string(),
+        "-n".to_string(),
+        config.namespace.clone(),
+        "--kubeconfig".to_string(),
+        config.kubeconfig.clone(),
+    ];
+    let (get_cmd, get_cmd_args) = sudo_wrap_flux(get_args, config.kube_elevated);
+
     ops.push(FluxPlannedOperation {
         id: "flux_get_kustomization",
         description: "Verify Flux kustomization is known to the API",
-        command: "flux".to_string(),
-        args: vec![
-            "get".to_string(),
-            "kustomization".to_string(),
-            FLUX_SYNC_NAME.to_string(),
-            "-n".to_string(),
-            config.namespace.clone(),
-            "--kubeconfig".to_string(),
-            config.kubeconfig.clone(),
-        ],
+        command: get_cmd,
+        args: get_cmd_args,
         env: kube_env,
         failure_is_warning: false,
     });
@@ -114,53 +129,70 @@ fn reconcile_plan(
 ) -> Vec<FluxPlannedOperation> {
     let ns = config.namespace.clone();
     let kc = config.kubeconfig.clone();
+    let elevate = config.kube_elevated;
+
+    let (src_cmd, src_args) = sudo_wrap_flux(
+        vec![
+            "reconcile".to_string(),
+            "source".to_string(),
+            "git".to_string(),
+            FLUX_SYNC_NAME.to_string(),
+            "-n".to_string(),
+            ns.clone(),
+            "--kubeconfig".to_string(),
+            kc.clone(),
+        ],
+        elevate,
+    );
+
+    let (kust_cmd, kust_args) = sudo_wrap_flux(
+        vec![
+            "reconcile".to_string(),
+            "kustomization".to_string(),
+            FLUX_SYNC_NAME.to_string(),
+            "-n".to_string(),
+            ns.clone(),
+            "--kubeconfig".to_string(),
+            kc.clone(),
+        ],
+        elevate,
+    );
+
+    let (get_cmd, get_args) = sudo_wrap_flux(
+        vec![
+            "get".to_string(),
+            "kustomization".to_string(),
+            FLUX_SYNC_NAME.to_string(),
+            "-n".to_string(),
+            ns,
+            "--kubeconfig".to_string(),
+            kc,
+        ],
+        elevate,
+    );
+
     vec![
         FluxPlannedOperation {
             id: "flux_reconcile_source_git",
             description: "Reconcile existing Flux Git source",
-            command: "flux".to_string(),
-            args: vec![
-                "reconcile".to_string(),
-                "source".to_string(),
-                "git".to_string(),
-                FLUX_SYNC_NAME.to_string(),
-                "-n".to_string(),
-                ns.clone(),
-                "--kubeconfig".to_string(),
-                kc.clone(),
-            ],
+            command: src_cmd,
+            args: src_args,
             env: kube_env.to_vec(),
             failure_is_warning: false,
         },
         FluxPlannedOperation {
             id: "flux_reconcile_kustomization",
             description: "Reconcile existing Flux kustomization",
-            command: "flux".to_string(),
-            args: vec![
-                "reconcile".to_string(),
-                "kustomization".to_string(),
-                FLUX_SYNC_NAME.to_string(),
-                "-n".to_string(),
-                ns.clone(),
-                "--kubeconfig".to_string(),
-                kc.clone(),
-            ],
+            command: kust_cmd,
+            args: kust_args,
             env: kube_env.to_vec(),
             failure_is_warning: false,
         },
         FluxPlannedOperation {
             id: "flux_get_kustomization",
             description: "Verify Flux kustomization after reconcile",
-            command: "flux".to_string(),
-            args: vec![
-                "get".to_string(),
-                "kustomization".to_string(),
-                FLUX_SYNC_NAME.to_string(),
-                "-n".to_string(),
-                ns,
-                "--kubeconfig".to_string(),
-                kc,
-            ],
+            command: get_cmd,
+            args: get_args,
             env: kube_env.to_vec(),
             failure_is_warning: false,
         },
@@ -193,6 +225,7 @@ mod tests {
             ephemeral_key_generated: false,
             private_key_passphrase: None,
             keep_generated_key_dir: None,
+            kube_elevated: false,
         }
     }
 
@@ -213,6 +246,20 @@ mod tests {
         assert!(!bootstrap.args.iter().any(|a| a == "--token-auth"));
         assert!(bootstrap.args.contains(&"--silent".to_string()));
         assert!(bootstrap.env.iter().any(|(k, _)| k == "KUBECONFIG"));
+    }
+
+    #[test]
+    fn bootstrap_plan_wraps_flux_in_sudo_when_kube_elevated() {
+        let mut c = base_config();
+        c.kube_elevated = true;
+        let plan = build_plan(&c).expect("plan");
+        let bootstrap = plan
+            .iter()
+            .find(|o| o.id == "flux_bootstrap_git")
+            .expect("bootstrap");
+        assert_eq!(bootstrap.command, "sudo");
+        assert_eq!(bootstrap.args.first().map(String::as_str), Some("flux"));
+        assert!(bootstrap.args.contains(&"bootstrap".to_string()));
     }
 
     #[test]

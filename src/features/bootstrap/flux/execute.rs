@@ -267,6 +267,7 @@ mod tests {
             ephemeral_key_generated: false,
             private_key_passphrase: None,
             keep_generated_key_dir: None,
+            kube_elevated: false,
         };
         let plan = vec![
             FluxPlannedOperation {

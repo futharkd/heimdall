@@ -12,8 +12,8 @@ use crate::runtime::ExitStatus;
 use super::execute::execute_plan;
 use super::human::format_report_human;
 use super::input::{
-    BootstrapFluxConfig, probe_flux_namespace, probe_flux_on_path, resolve_inputs,
-    wait_enter_after_deploy_key_prompt,
+    BootstrapFluxConfig, kubeconfig_requires_elevated_access, probe_flux_namespace,
+    probe_flux_on_path, resolve_inputs, wait_enter_after_deploy_key_prompt,
 };
 use super::plan::build_plan;
 
@@ -21,10 +21,14 @@ pub fn run(opts: BootstrapFluxCommand, global: &GlobalOpts) -> Result<ExitStatus
     let mut resolved = resolve_inputs(opts)?;
     let runner = LocalRunner;
 
+    resolved.config.kube_elevated =
+        kubeconfig_requires_elevated_access(&resolved.config.kubeconfig);
+
     resolved.config.namespace_exists = probe_flux_namespace(
         &runner,
         &resolved.config.kubeconfig,
         &resolved.config.namespace,
+        resolved.config.kube_elevated,
     )?;
 
     if !resolved.config.namespace_exists {

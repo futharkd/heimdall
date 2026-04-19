@@ -1,4 +1,4 @@
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, ErrorKind, IsTerminal, Write};
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
@@ -29,6 +29,8 @@ pub struct BootstrapFluxConfig {
     pub ephemeral_key_generated: bool,
     pub private_key_passphrase: Option<String>,
     pub keep_generated_key_dir: Option<PathBuf>,
+    /// When true, `kubectl` / `flux` that touch the API run under `sudo` (root-only kubeconfig).
+    pub kube_elevated: bool,
 }
 
 pub struct ResolvedFluxInputs {
@@ -192,9 +194,18 @@ pub fn resolve_inputs(opts: BootstrapFluxCommand) -> Result<ResolvedFluxInputs> 
             ephemeral_key_generated: false,
             private_key_passphrase,
             keep_generated_key_dir,
+            kube_elevated: false,
         },
         output: opts.output,
     })
+}
+
+/// True when the kubeconfig cannot be read as the current user (typical for `/etc/rancher/k3s/k3s.yaml`).
+pub fn kubeconfig_requires_elevated_access(path: &str) -> bool {
+    match std::fs::File::open(path) {
+        Ok(_) => false,
+        Err(e) => e.kind() == ErrorKind::PermissionDenied,
+    }
 }
 
 pub fn kube_env(kubeconfig: &str) -> Vec<(String, String)> {
@@ -221,11 +232,17 @@ pub fn probe_flux_namespace(
     runner: &dyn CommandRunner,
     kubeconfig: &str,
     namespace: &str,
+    kube_elevated: bool,
 ) -> Result<bool> {
     let env = kube_env(kubeconfig);
     let env_refs: Vec<(&str, &str)> = env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-    let args = ["get", "ns", namespace];
-    let output = runner.run_with_env_io("kubectl", &args, &env_refs, IoMode::Buffered)?;
+    let output = if kube_elevated {
+        let args = ["k3s", "kubectl", "get", "ns", namespace];
+        runner.run_with_env_io("sudo", &args, &env_refs, IoMode::Buffered)?
+    } else {
+        let args = ["get", "ns", namespace];
+        runner.run_with_env_io("kubectl", &args, &env_refs, IoMode::Buffered)?
+    };
     Ok(output.status.success())
 }
 
@@ -249,7 +266,10 @@ pub fn wait_enter_after_deploy_key_prompt() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{cluster_path_from_opts_and_env, git_url_from_opts_and_env};
+    use super::{
+        cluster_path_from_opts_and_env, git_url_from_opts_and_env,
+        kubeconfig_requires_elevated_access,
+    };
     use crate::cli::{BootstrapFluxCommand, OutputFormat};
 
     fn flux_cmd(url: Option<&str>, path: Option<&str>) -> BootstrapFluxCommand {
@@ -294,5 +314,21 @@ mod tests {
     #[test]
     fn cluster_path_from_opts_none_when_missing() {
         assert!(cluster_path_from_opts_and_env(&flux_cmd(None, None)).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn kubeconfig_requires_elevated_when_permission_denied() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("kc.yaml");
+        std::fs::write(&path, b"apiVersion: v1\n").expect("write");
+        let mut perms = std::fs::metadata(&path).expect("meta").permissions();
+        perms.set_mode(0o000);
+        std::fs::set_permissions(&path, perms).expect("chmod");
+        assert!(kubeconfig_requires_elevated_access(
+            path.to_str().expect("utf8")
+        ));
     }
 }

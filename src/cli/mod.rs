@@ -9,6 +9,14 @@ pub enum OutputFormat {
     Json,
 }
 
+/// k3s role for the official `get.k3s.io` install script (via `K3S_URL` / `K3S_TOKEN` for agents).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum K3sRole {
+    #[default]
+    Server,
+    Agent,
+}
+
 /// How the official NetBird `install.sh` should install the client (via environment).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
 pub enum NetbirdInstallMethod {
@@ -46,6 +54,7 @@ pub enum Command {
 #[derive(Debug, Subcommand)]
 pub enum BootstrapAction {
     Flux,
+    K3s(BootstrapK3sCommand),
     Netbird(BootstrapNetbirdCommand),
     User(BootstrapUserCommand),
 }
@@ -54,6 +63,37 @@ pub enum BootstrapAction {
 pub struct BootstrapCommand {
     #[command(subcommand)]
     pub action: BootstrapAction,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct BootstrapK3sCommand {
+    /// Install a k3s server (default) or join this host as an agent using `K3S_URL` / `K3S_TOKEN`.
+    #[arg(long, value_enum, default_value_t = K3sRole::Server)]
+    pub role: K3sRole,
+    /// k3s API server URL for `--role agent` (e.g. `https://server:6443`; flag or env `K3S_URL`).
+    #[arg(long)]
+    pub server_url: Option<String>,
+    /// Cluster secret / agent token for `--role agent` (flag or env `K3S_TOKEN`).
+    #[arg(long)]
+    pub token: Option<String>,
+    /// Pin k3s version (`INSTALL_K3S_VERSION`; flag or env `INSTALL_K3S_VERSION`).
+    #[arg(long)]
+    pub version: Option<String>,
+    /// Extra arguments for the k3s binary (`INSTALL_K3S_EXEC`).
+    #[arg(long = "install-exec")]
+    pub install_exec: Option<String>,
+    /// Sets `INSTALL_K3S_SKIP_START=true` (binaries without starting the service).
+    #[arg(long)]
+    pub skip_start: bool,
+    /// Sets `INSTALL_K3S_SKIP_ENABLE=true` (skip `systemctl enable`).
+    #[arg(long)]
+    pub skip_enable: bool,
+    #[arg(long)]
+    pub dry_run: bool,
+    #[arg(long)]
+    pub yes: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
 }
 
 #[derive(Debug, clap::Args)]

@@ -1,0 +1,114 @@
+use std::io::{self, Write};
+use std::path::PathBuf;
+
+use anyhow::{Result, bail};
+
+use crate::cli::{BootstrapK3sCommand, K3sRole, OutputFormat};
+
+#[derive(Debug, Clone)]
+pub struct BootstrapK3sConfig {
+    pub install_script_path: PathBuf,
+    pub role: K3sRole,
+    pub server_url: Option<String>,
+    pub token: Option<String>,
+    pub version: Option<String>,
+    pub install_exec: Option<String>,
+    pub skip_start: bool,
+    pub skip_enable: bool,
+    pub dry_run: bool,
+}
+
+pub struct ResolvedK3sInputs {
+    pub config: BootstrapK3sConfig,
+    pub output: OutputFormat,
+}
+
+pub fn resolve_inputs(opts: BootstrapK3sCommand) -> Result<ResolvedK3sInputs> {
+    let install_script_path = std::env::temp_dir().join(format!(
+        "heimdall-k3s-install-{}.sh",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+
+    let version = opts
+        .version
+        .clone()
+        .or_else(|| std::env::var("INSTALL_K3S_VERSION").ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let install_exec = opts
+        .install_exec
+        .clone()
+        .or_else(|| std::env::var("INSTALL_K3S_EXEC").ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let server_url = if opts.role == K3sRole::Agent {
+        opts.server_url
+            .clone()
+            .or_else(|| std::env::var("K3S_URL").ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    } else {
+        None
+    };
+
+    let token = if opts.role == K3sRole::Agent {
+        opts.token
+            .clone()
+            .or_else(|| std::env::var("K3S_TOKEN").ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    } else {
+        None
+    };
+
+    if let Some(ref url) = server_url {
+        super::validate::validate_k3s_server_url(url)?;
+    }
+
+    super::validate::validate_agent_inputs(opts.role, server_url.as_deref(), token.as_deref())?;
+
+    if !(opts.yes || opts.dry_run || confirm_install()?) {
+        bail!("aborted: k3s bootstrap was not confirmed");
+    }
+
+    if !opts.dry_run {
+        eprintln!(
+            "note: the official k3s installer typically requires root and will install systemd units and binaries on this host"
+        );
+    }
+
+    Ok(ResolvedK3sInputs {
+        config: BootstrapK3sConfig {
+            install_script_path,
+            role: opts.role,
+            server_url,
+            token,
+            version,
+            install_exec,
+            skip_start: opts.skip_start,
+            skip_enable: opts.skip_enable,
+            dry_run: opts.dry_run,
+        },
+        output: opts.output,
+    })
+}
+
+fn confirm_install() -> Result<bool> {
+    let answer = prompt(
+        "This will install or update k3s using the official get.k3s.io install script. Continue? type 'yes' to proceed: ",
+    )?;
+    Ok(answer == "yes")
+}
+
+fn prompt(label: &str) -> Result<String> {
+    print!("{label}");
+    io::stdout().flush()?;
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+    Ok(buf.trim().to_string())
+}

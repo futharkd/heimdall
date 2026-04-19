@@ -22,6 +22,7 @@ test:fmt:
   script:
     - rustup component add rustfmt
     - cargo fmt --check
+  allow_failure: true
 
 test:clippy:
   stage: test

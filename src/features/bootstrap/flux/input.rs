@@ -88,9 +88,7 @@ fn resolve_cluster_path(opts: &BootstrapFluxCommand) -> Result<String> {
         );
     }
     loop {
-        let line = prompt(
-            "Path inside the Git repo for Flux manifests (e.g. clusters/prod): ",
-        )?;
+        let line = prompt("Path inside the Git repo for Flux manifests (e.g. clusters/prod): ")?;
         let t = line.trim();
         if t.is_empty() {
             eprintln!("A non-empty path is required.");
@@ -287,11 +285,7 @@ mod tests {
     #[test]
     fn cluster_path_from_opts_trims_flag() {
         assert_eq!(
-            cluster_path_from_opts_and_env(&flux_cmd(
-                None,
-                Some("  clusters/prod  ")
-            ))
-            .as_deref(),
+            cluster_path_from_opts_and_env(&flux_cmd(None, Some("  clusters/prod  "))).as_deref(),
             Some("clusters/prod")
         );
     }

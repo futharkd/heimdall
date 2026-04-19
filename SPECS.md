@@ -57,7 +57,14 @@
   - Uses `curl` subprocesses via `CommandRunner`; optional `GITLAB_TOKEN` / `PRIVATE_TOKEN` is passed as `PRIVATE-TOKEN` on `curl` and is **redacted** in all reported command strings.
   - Supports `--dry-run`, `--yes`, `--output human|json`, and `--tag` for a non-`latest` package version string.
 - `heimdall bootstrap flux`
-  - Placeholder only (returns warning status).
+  - Implemented (SSH deploy key + [`flux bootstrap git`](https://fluxcd.io/flux/cmd/flux_bootstrap_git/); no `--token-auth` / HTTPS PAT in this version).
+  - **Idempotency:** `kubectl get ns <namespace>` with `KUBECONFIG`; if the namespace exists, plans `flux reconcile source git flux-system` + `flux reconcile kustomization flux-system` + `flux get kustomization flux-system` (names are fixed to **`flux-system`** for this MVP).
+  - **First install:** optional Flux CLI install via `curl` + `bash` on `https://fluxcd.io/install.sh` (override `--install-script-url`) when `flux version` is missing and **`--force` is not set** to skip that probe. `flux bootstrap git` is invoked with **`--silent`** after Heimdall’s deploy-key prompt so Flux skips its duplicate confirmation.
+  - **SSH key:** default interactive path runs **`ssh-keygen`** (`ed25519`, empty passphrase), prints the **public** key and GitLab/GitHub deploy-key hints, then waits for Enter before `flux bootstrap git`. Requires a **TTY** unless **`--private-key-file`** supplies an existing private key (BYOK / CI). **`--keep-generated-key <dir>`** copies `deploy_key` + `deploy_key.pub` into that directory after a **successful** bootstrap, then deletes the temp pair; otherwise temp keys are removed (cluster keeps credentials in Kubernetes `Secret`s for ongoing sync).
+  - Flags: `--url` (or `FLUX_GIT_URL`), `--branch` / `FLUX_GIT_BRANCH` (default `main`), `--path` / `FLUX_GIT_PATH`, `--namespace` / `FLUX_NAMESPACE` (default `flux-system`), `--kubeconfig` (default `$KUBECONFIG` or `/etc/rancher/k3s/k3s.yaml`), `--private-key-file`, `--private-key-passphrase` (BYOK encrypted keys → Flux `--password`), `--install-script-url`, `--keep-generated-key`, `--force`, `--dry-run`, `--yes`, `--output human|json`.
+  - If **`--url` and `FLUX_GIT_URL` are both unset** and **stdin is a TTY**, Heimdall **prompts** for an SSH Git URL (repeats until input validates). **Non-interactive** runs (no TTY) must set **`--url`** or **`FLUX_GIT_URL`**.
+  - Git URL must be SSH (`ssh://…` or `git@host:path`); `https://` is rejected (would need `--token-auth`, not implemented here).
+  - Dry-run redacts `--private-key-file=…` and `--password` values in planned `flux bootstrap git` command lines.
 - `heimdall harden ssh`
   - Placeholder only (returns warning status).
 
@@ -71,6 +78,7 @@ Heimdall now uses a hybrid architecture: feature-first folders for domain logic 
 - `src/features`: feature-owned command + behavior implementation.
   - `src/features/bootstrap/user`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
   - `src/features/bootstrap/k3s`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
+  - `src/features/bootstrap/flux`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`, `keygen`
   - `src/features/bootstrap/netbird`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
   - `src/features/verify/doctor`: `checks`, `report`, `human`, `command`
   - `src/features/update`: `package`, `checksum`, `input`, `execute`, `report`, `human`, `command`
@@ -178,6 +186,7 @@ GitLab CI stages:
   - `bootstrap user` flags parsing
   - `bootstrap netbird` flags parsing
   - `bootstrap k3s` flags parsing (including `--force`)
+  - `bootstrap flux` flags parsing
   - `update` flags parsing
 - `bootstrap user` feature tests:
   - invalid key rejection
@@ -197,6 +206,11 @@ GitLab CI stages:
   - dry-run output redacts `K3S_TOKEN` in env display
   - URL validation for agent server URL (`https://` + host)
   - mocked execute reaches `sudo k3s kubectl` verify when prior steps succeed
+- `bootstrap flux` feature tests:
+  - SSH URL validation (`ssh://` / `git@…`)
+  - `git_url_from_opts_and_env` trims `--url` and returns `None` when flag and env are unset
+  - plan shapes for bootstrap vs reconcile; skip Flux install when `skip_flux_cli_install`
+  - dry-run redaction for `flux bootstrap git` `--private-key-file` and `--password`
 - `update` feature tests:
   - repository URL parsing and generic package URL construction
   - `sha256sum`-style checksum parsing and SHA256 helpers
@@ -206,7 +220,8 @@ GitLab CI stages:
 
 ## Known limitations / next steps
 
-- `bootstrap flux` and `harden ssh` are not implemented yet.
+- `harden ssh` is not implemented yet.
+- `bootstrap flux` assumes `kubectl`, `flux`, `curl`, `bash`, and (for generated keys) `ssh-keygen` on `PATH`; fixed `flux-system` source/kustomization names; HTTPS PAT bootstrap (`--token-auth`) not implemented.
 - `heimdall update` is Linux amd64 only; Windows and macOS are out of scope for v1.
 - `bootstrap netbird` assumes a Linux-style host with `curl`, `sh`, `netbird`, and `ip` available on `PATH` after install; it does not configure NetBird management servers.
 - `bootstrap k3s` assumes a Linux-style host with `curl`, `sh`, and `k3s` on `PATH` after install for verification; the upstream installer typically requires root. HA servers, air-gapped installs, and non-upstream install methods are out of scope for this command.

@@ -44,6 +44,6 @@ See [`.gitlab-ci.yml`](.gitlab-ci.yml) for the exact job definitions (fmt, clipp
 
 ## Rough roadmap
 
-- Implement scaffolded commands (`bootstrap flux`, `harden ssh`, …).
+- Implement scaffolded commands (`harden ssh`, …).
 - Tighter plan/apply/verify contracts per feature where it pays off.
 - Optional remote execution backend (today everything is local `CommandRunner`).

@@ -11,7 +11,8 @@ Rust CLI for **bootstrap**, **verify**, and **self-update** on Linux (x86_64 for
 | `heimdall bootstrap netbird` | Official NetBird `install.sh`, join, status checks |
 | `heimdall bootstrap k3s` | Official get.k3s.io install, optional verify |
 | `heimdall update` | Replace running binary from GitLab Generic Package |
-| `heimdall bootstrap flux`, `heimdall harden ssh` | Placeholders (not implemented) |
+| `heimdall bootstrap flux` | Flux CLI install (optional), SSH `flux bootstrap git` or reconcile existing install |
+| `heimdall harden ssh` | Placeholder (not implemented) |
 
 Full flags, safety behavior, limits: **[SPECS.md](SPECS.md)**.
 

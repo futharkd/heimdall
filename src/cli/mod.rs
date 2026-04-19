@@ -53,7 +53,7 @@ pub enum Command {
 
 #[derive(Debug, Subcommand)]
 pub enum BootstrapAction {
-    Flux,
+    Flux(BootstrapFluxCommand),
     K3s(BootstrapK3sCommand),
     Netbird(BootstrapNetbirdCommand),
     User(BootstrapUserCommand),
@@ -63,6 +63,46 @@ pub enum BootstrapAction {
 pub struct BootstrapCommand {
     #[command(subcommand)]
     pub action: BootstrapAction,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct BootstrapFluxCommand {
+    /// SSH Git URL (e.g. `ssh://git@gitlab.com/group/repo.git`). Omit to use `FLUX_GIT_URL` or an interactive prompt when stdin is a TTY.
+    #[arg(long)]
+    pub url: Option<String>,
+    /// Git branch (default `main`; env `FLUX_GIT_BRANCH`).
+    #[arg(long)]
+    pub branch: Option<String>,
+    /// Path inside the repo for Flux manifests (e.g. `clusters/prod`).
+    #[arg(long)]
+    pub path: Option<String>,
+    /// Flux namespace (default `flux-system`).
+    #[arg(long)]
+    pub namespace: Option<String>,
+    /// kubeconfig path (default `$KUBECONFIG` or `/etc/rancher/k3s/k3s.yaml`).
+    #[arg(long)]
+    pub kubeconfig: Option<String>,
+    /// Use this SSH private key (deploy key already on server); skips keygen and deploy-key prompt.
+    #[arg(long)]
+    pub private_key_file: Option<String>,
+    /// Passphrase for `--private-key-file` when encrypted (passed to `flux` as `-p`).
+    #[arg(long = "private-key-passphrase")]
+    pub private_key_passphrase: Option<String>,
+    /// Flux install script URL (default upstream install script).
+    #[arg(long)]
+    pub install_script_url: Option<String>,
+    /// After bootstrap, copy generated key material to this directory (`deploy_key` + `deploy_key.pub`).
+    #[arg(long)]
+    pub keep_generated_key: Option<String>,
+    /// Re-run Flux install script even when `flux` is on PATH.
+    #[arg(long)]
+    pub force: bool,
+    #[arg(long)]
+    pub dry_run: bool,
+    #[arg(long)]
+    pub yes: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
 }
 
 #[derive(Debug, clap::Args)]

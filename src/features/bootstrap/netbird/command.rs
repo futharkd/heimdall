@@ -31,7 +31,7 @@ pub fn run(opts: BootstrapNetbirdCommand) -> Result<ExitStatus> {
 mod tests {
     use clap::Parser;
 
-    use crate::cli::{BootstrapAction, Cli, Command, OutputFormat};
+    use crate::cli::{BootstrapAction, Cli, Command, NetbirdInstallMethod, OutputFormat};
 
     #[test]
     fn cli_parses_bootstrap_netbird_flags() {
@@ -42,6 +42,8 @@ mod tests {
             "--skip-ui",
             "--release",
             "latest",
+            "--install-method",
+            "package",
             "--dry-run",
             "--output",
             "json",
@@ -56,6 +58,10 @@ mod tests {
         };
         assert!(nb.skip_ui);
         assert_eq!(nb.release.as_deref(), Some("latest"));
+        assert!(matches!(
+            nb.install_method,
+            Some(NetbirdInstallMethod::Package)
+        ));
         assert!(nb.dry_run);
         assert!(matches!(nb.output, OutputFormat::Json));
     }

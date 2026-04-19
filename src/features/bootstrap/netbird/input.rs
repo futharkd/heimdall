@@ -3,13 +3,14 @@ use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 
-use crate::cli::{BootstrapNetbirdCommand, OutputFormat};
+use crate::cli::{BootstrapNetbirdCommand, NetbirdInstallMethod, OutputFormat};
 
 #[derive(Debug, Clone)]
 pub struct BootstrapNetbirdConfig {
     pub install_script_path: PathBuf,
     pub skip_ui: bool,
     pub release: String,
+    pub install_method: NetbirdInstallMethod,
     pub github_token: Option<String>,
     pub setup_key: Option<String>,
     pub management_url: Option<String>,
@@ -52,6 +53,8 @@ pub fn resolve_inputs(opts: BootstrapNetbirdCommand) -> Result<ResolvedNetbirdIn
 
     let github_token = std::env::var("GITHUB_TOKEN").ok();
 
+    let install_method = resolve_install_method(&opts)?;
+
     if !(opts.yes || opts.dry_run || confirm_install()?) {
         bail!("aborted: NetBird bootstrap was not confirmed");
     }
@@ -67,6 +70,7 @@ pub fn resolve_inputs(opts: BootstrapNetbirdCommand) -> Result<ResolvedNetbirdIn
             install_script_path,
             skip_ui: opts.skip_ui,
             release,
+            install_method,
             github_token,
             setup_key,
             management_url,
@@ -74,6 +78,56 @@ pub fn resolve_inputs(opts: BootstrapNetbirdCommand) -> Result<ResolvedNetbirdIn
         },
         output: opts.output,
     })
+}
+
+fn resolve_install_method(opts: &BootstrapNetbirdCommand) -> Result<NetbirdInstallMethod> {
+    if let Some(method) = opts.install_method {
+        return Ok(method);
+    }
+    if let Some(method) = parse_install_method_env()? {
+        return Ok(method);
+    }
+    if opts.yes || opts.dry_run {
+        return Ok(NetbirdInstallMethod::Binary);
+    }
+    prompt_install_method()
+}
+
+fn parse_install_method_env() -> Result<Option<NetbirdInstallMethod>> {
+    let Ok(raw) = std::env::var("HEIMDALL_NETBIRD_INSTALL_METHOD") else {
+        return Ok(None);
+    };
+    let value = raw.trim().to_ascii_lowercase();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    match value.as_str() {
+        "binary" | "bin" | "1" | "portable" => Ok(Some(NetbirdInstallMethod::Binary)),
+        "package" | "repo" | "apt" | "dnf" | "yum" | "2" => Ok(Some(NetbirdInstallMethod::Package)),
+        _ => bail!("invalid HEIMDALL_NETBIRD_INSTALL_METHOD={raw:?} (expected binary or package)"),
+    }
+}
+
+fn prompt_install_method() -> Result<NetbirdInstallMethod> {
+    println!();
+    println!(
+        "NetBird install method (upstream install.sh reads this from the environment Heimdall sets):"
+    );
+    println!(
+        "  [1] Portable — GitHub release tarballs (USE_BIN_INSTALL=true). Fewer distro prompts; good for servers."
+    );
+    println!(
+        "  [2] Package — apt, dnf, or yum as detected on this host (DEBIAN_FRONTEND=noninteractive for apt)."
+    );
+    loop {
+        let answer = prompt("Choice [1/2] (default: 1): ")?;
+        let trimmed = answer.trim().to_ascii_lowercase();
+        match trimmed.as_str() {
+            "" | "1" | "binary" | "b" | "portable" => return Ok(NetbirdInstallMethod::Binary),
+            "2" | "package" | "p" | "repo" => return Ok(NetbirdInstallMethod::Package),
+            _ => println!("Enter 1 or 2 (or binary / package)."),
+        }
+    }
 }
 
 fn confirm_install() -> Result<bool> {

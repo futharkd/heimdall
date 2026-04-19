@@ -7,6 +7,16 @@ pub enum OutputFormat {
     Json,
 }
 
+/// How the official NetBird `install.sh` should install the client (via environment).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum NetbirdInstallMethod {
+    /// Set `USE_BIN_INSTALL=true` for upstream: GitHub release tarballs, fewer distro/package prompts.
+    #[default]
+    Binary,
+    /// Let upstream pick apt, dnf, or yum. Heimdall sets `DEBIAN_FRONTEND=noninteractive` for quieter apt.
+    Package,
+}
+
 #[derive(Debug, Parser)]
 #[command(name = "heimdall", version, about = "Modular infrastructure CLI")]
 pub struct Cli {
@@ -49,6 +59,9 @@ pub struct BootstrapNetbirdCommand {
     /// Self-hosted management service URL (prefer env NETBIRD_MANAGEMENT_URL).
     #[arg(long)]
     pub management_url: Option<String>,
+    /// Install via portable GitHub binaries (`USE_BIN_INSTALL=true`) or system packages (apt/dnf/yum). If omitted: env `HEIMDALL_NETBIRD_INSTALL_METHOD`, else `--yes`/`--dry-run` default to binary, else an interactive prompt.
+    #[arg(long, value_enum)]
+    pub install_method: Option<NetbirdInstallMethod>,
     #[arg(long)]
     pub dry_run: bool,
     #[arg(long)]

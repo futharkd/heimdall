@@ -35,6 +35,7 @@
 - `heimdall bootstrap netbird`
   - Implemented.
   - Delegates install to the official `https://pkgs.netbird.io/install.sh` (downloaded to a temp file, then executed with `NETBIRD_RELEASE` / optional `SKIP_UI_APP` / optional `GITHUB_TOKEN` from the environment).
+  - Install path: `--install-method binary|package`, env `HEIMDALL_NETBIRD_INSTALL_METHOD`, interactive prompt when neither applies and `--yes`/`--dry-run` are not set; default for non-interactive runs is **binary** (`USE_BIN_INSTALL=true`). **Package** sets `DEBIAN_FRONTEND=noninteractive` for quieter apt.
   - Join uses the official CLI: `netbird up` with optional `--setup-key` and `--management-url` (from flags or `NETBIRD_SETUP_KEY` / `NETBIRD_MANAGEMENT_URL`).
   - Verify runs `netbird status` and requires `Management: Connected` and `Signal: Connected` in output; `ip link show wt0` is best-effort (warning if absent).
   - Dry-run redacts sensitive env vars and `--setup-key` values in reported command lines.

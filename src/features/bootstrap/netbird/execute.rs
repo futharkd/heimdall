@@ -321,6 +321,7 @@ mod tests {
             install_script_path: PathBuf::from("/tmp/x.sh"),
             skip_ui: true,
             release: "latest".to_string(),
+            install_method: crate::cli::NetbirdInstallMethod::Binary,
             github_token: None,
             setup_key: Some("k".to_string()),
             management_url: None,

@@ -64,7 +64,7 @@ When risky auth changes are requested (`--disable-root-login` and/or `--disable-
 Heimdall does **not** reimplement NetBird packaging. It:
 
 1. Downloads `https://pkgs.netbird.io/install.sh` to a temp file (no `curl | sh` pipe).
-2. Runs that script with the same environment variables the upstream installer supports (`NETBIRD_RELEASE`, optional `SKIP_UI_APP`, optional `GITHUB_TOKEN` from your environment only). Run from a normal terminal when possible: the upstream installer may invoke `sudo` or a package manager and expect an interactive TTY; for headless hosts prefer a setup key and NetBird’s unattended guidance.
+2. Runs that script with the same environment variables the upstream installer supports (`NETBIRD_RELEASE`, optional `SKIP_UI_APP`, optional `GITHUB_TOKEN` from your environment only). Heimdall chooses how upstream installs the client: **`--install-method binary`** (default with `--yes` / `--dry-run`, or set `HEIMDALL_NETBIRD_INSTALL_METHOD=binary`) sets **`USE_BIN_INSTALL=true`** for GitHub release tarballs (fewer distro prompts), or **`package`** for apt/dnf/yum detection plus **`DEBIAN_FRONTEND=noninteractive`** for quieter apt. Without `--yes`, an interactive menu offers the same choice before the final confirmation.
 3. Runs **`netbird up`** with optional **`--setup-key`** / **`--management-url`** (flags or environment variables below).
 4. Runs **`netbird status`** and checks for `Management: Connected` and `Signal: Connected`, then optionally probes `wt0` (non-fatal if missing).
 
@@ -78,6 +78,9 @@ cargo run -- bootstrap netbird --dry-run --yes
 export NETBIRD_SETUP_KEY="…"
 cargo run -- bootstrap netbird --skip-ui --yes
 
+# Force package-manager install instead of portable binaries
+cargo run -- bootstrap netbird --install-method package --yes
+
 # Self-hosted management URL (flag or NETBIRD_MANAGEMENT_URL)
 cargo run -- bootstrap netbird --management-url 'https://netbird.example:443' --yes
 ```
@@ -88,6 +91,7 @@ Environment variables (optional, recommended for secrets):
 - `GITHUB_TOKEN` — passed to the official install script only if set (rate limits / API access).
 - `NETBIRD_SETUP_KEY` — headless join (overridden by `--setup-key`).
 - `NETBIRD_MANAGEMENT_URL` — self-hosted management (overridden by `--management-url`).
+- `HEIMDALL_NETBIRD_INSTALL_METHOD` — `binary` or `package` when you do not pass `--install-method` (same meaning as the flag).
 
 Official references: [NetBird Linux install](https://docs.netbird.io/how-to/installation/linux), upstream [`install.sh`](https://github.com/netbirdio/netbird/blob/main/release_files/install.sh).
 

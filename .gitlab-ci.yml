@@ -4,11 +4,11 @@ stages:
   - publish
 
 # CARGO_HOME under the repo so cache paths stay inside CI_PROJECT_DIR (GitLab requirement).
-# Key from Cargo.lock: new cache when dependencies change; shared across jobs on same lockfile.
+variables:
+  CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
 default:
   image: rust:1.94
-  variables:
-    CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
+  # Key from Cargo.lock: new cache when dependencies change; shared across jobs on same lockfile.
   cache:
     key:
       files:
@@ -63,4 +63,3 @@ publish:package:
     - export BASE_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME}/${PACKAGE_VERSION}"
     - 'curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file dist/heimdall-linux-amd64 "${BASE_URL}/heimdall-linux-amd64"'
     - 'curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file dist/heimdall-linux-amd64.sha256 "${BASE_URL}/heimdall-linux-amd64.sha256"'
-

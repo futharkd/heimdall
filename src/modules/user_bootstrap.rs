@@ -107,9 +107,12 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             description: "Ensure admin group exists",
             command: "sudo".to_string(),
             args: vec![
-                "groupadd".to_string(),
-                "--force".to_string(),
-                config.group.clone(),
+                "sh".to_string(),
+                "-c".to_string(),
+                format!(
+                    "getent group {} >/dev/null || groupadd {}",
+                    config.group, config.group
+                ),
             ],
             requires_confirmation: false,
         },
@@ -118,13 +121,12 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             description: "Ensure admin user exists",
             command: "sudo".to_string(),
             args: vec![
-                "useradd".to_string(),
-                "--create-home".to_string(),
-                "--shell".to_string(),
-                "/bin/bash".to_string(),
-                "--gid".to_string(),
-                config.group.clone(),
-                config.user.clone(),
+                "sh".to_string(),
+                "-c".to_string(),
+                format!(
+                    "id -u {} >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --gid {} {}",
+                    config.user, config.group, config.user
+                ),
             ],
             requires_confirmation: false,
         },
@@ -148,16 +150,25 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
     ];
 
     let authorized_keys_path = format!("/home/{}/.ssh/authorized_keys", config.user);
+    operations.push(PlannedOperation {
+        id: "ensure_authorized_keys_file",
+        description: "Ensure authorized_keys file exists",
+        command: "sudo".to_string(),
+        args: vec!["touch".to_string(), authorized_keys_path.clone()],
+        requires_confirmation: false,
+    });
     for key in &config.keys {
         operations.push(PlannedOperation {
             id: "append_authorized_key",
-            description: "Install allowed SSH key",
+            description: "Install allowed SSH key if missing",
             command: "sudo".to_string(),
             args: vec![
                 "sh".to_string(),
                 "-c".to_string(),
                 format!(
-                    "printf '%s\\n' '{}' >> {}",
+                    "grep -qxF '{}' {} || printf '%s\\n' '{}' >> {}",
+                    key.replace('\'', "'\"'\"'"),
+                    authorized_keys_path,
                     key.replace('\'', "'\"'\"'"),
                     authorized_keys_path
                 ),
@@ -362,6 +373,23 @@ mod tests {
         let mut c = config();
         c.keys.clear();
         assert!(build_plan(&c).is_err());
+    }
+
+    #[test]
+    fn plan_uses_idempotent_user_and_key_operations() {
+        let c = config();
+        let plan = build_plan(&c).expect("plan should build");
+        let ensure_user = plan
+            .iter()
+            .find(|op| op.id == "ensure_user")
+            .expect("ensure_user operation must exist");
+        assert!(ensure_user.args.join(" ").contains("id -u"));
+
+        let append_key = plan
+            .iter()
+            .find(|op| op.id == "append_authorized_key")
+            .expect("append_authorized_key operation must exist");
+        assert!(append_key.args.join(" ").contains("grep -qxF"));
     }
 
     #[test]

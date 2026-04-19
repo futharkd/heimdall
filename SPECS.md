@@ -63,6 +63,7 @@
   - **SSH key:** default interactive path runs **`ssh-keygen`** (`ed25519`, empty passphrase), prints the **public** key and GitLab/GitHub deploy-key hints, then waits for Enter before `flux bootstrap git`. Requires a **TTY** unless **`--private-key-file`** supplies an existing private key (BYOK / CI). **`--keep-generated-key <dir>`** copies `deploy_key` + `deploy_key.pub` into that directory after a **successful** bootstrap, then deletes the temp pair; otherwise temp keys are removed (cluster keeps credentials in Kubernetes `Secret`s for ongoing sync).
   - Flags: `--url` (or `FLUX_GIT_URL`), `--branch` / `FLUX_GIT_BRANCH` (default `main`), `--path` / `FLUX_GIT_PATH`, `--namespace` / `FLUX_NAMESPACE` (default `flux-system`), `--kubeconfig` (default `$KUBECONFIG` or `/etc/rancher/k3s/k3s.yaml`), `--private-key-file`, `--private-key-passphrase` (BYOK encrypted keys → Flux `--password`), `--install-script-url`, `--keep-generated-key`, `--force`, `--dry-run`, `--yes`, `--output human|json`.
   - If **`--url` and `FLUX_GIT_URL` are both unset** and **stdin is a TTY**, Heimdall **prompts** for an SSH Git URL (repeats until input validates). **Non-interactive** runs (no TTY) must set **`--url`** or **`FLUX_GIT_URL`**.
+  - Same pattern for **`--path` / `FLUX_GIT_PATH`**: interactive prompt when unset and stdin is a TTY; otherwise pass **`--path`** or **`FLUX_GIT_PATH`**.
   - Git URL must be SSH (`ssh://…` or `git@host:path`); `https://` is rejected (would need `--token-auth`, not implemented here).
   - Dry-run redacts `--private-key-file=…` and `--password` values in planned `flux bootstrap git` command lines.
 - `heimdall harden ssh`
@@ -208,7 +209,7 @@ GitLab CI stages:
   - mocked execute reaches `sudo k3s kubectl` verify when prior steps succeed
 - `bootstrap flux` feature tests:
   - SSH URL validation (`ssh://` / `git@…`)
-  - `git_url_from_opts_and_env` trims `--url` and returns `None` when flag and env are unset
+  - `git_url_from_opts_and_env` trims `--url` and returns `None` when flag and env are unset; `cluster_path_from_opts_and_env` for `--path` / `FLUX_GIT_PATH`
   - plan shapes for bootstrap vs reconcile; skip Flux install when `skip_flux_cli_install`
   - dry-run redaction for `flux bootstrap git` `--private-key-file` and `--password`
 - `update` feature tests:

@@ -73,7 +73,7 @@ pub struct BootstrapFluxCommand {
     /// Git branch (default `main`; env `FLUX_GIT_BRANCH`).
     #[arg(long)]
     pub branch: Option<String>,
-    /// Path inside the repo for Flux manifests (e.g. `clusters/prod`).
+    /// Path inside the repo for Flux manifests (e.g. `clusters/prod`). Omit to use `FLUX_GIT_PATH` or an interactive prompt when stdin is a TTY.
     #[arg(long)]
     pub path: Option<String>,
     /// Flux namespace (default `flux-system`).

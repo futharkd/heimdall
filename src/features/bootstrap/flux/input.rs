@@ -36,6 +36,15 @@ pub struct ResolvedFluxInputs {
     pub output: OutputFormat,
 }
 
+/// Flux manifest path from `--path` or `FLUX_GIT_PATH` when set (trimmed, non-empty).
+pub(crate) fn cluster_path_from_opts_and_env(opts: &BootstrapFluxCommand) -> Option<String> {
+    opts.path
+        .clone()
+        .or_else(|| std::env::var("FLUX_GIT_PATH").ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
 /// Git URL from `--url` or `FLUX_GIT_URL` when set (trimmed, non-empty).
 pub(crate) fn git_url_from_opts_and_env(opts: &BootstrapFluxCommand) -> Option<String> {
     opts.url
@@ -69,6 +78,28 @@ fn resolve_git_url(opts: &BootstrapFluxCommand) -> Result<String> {
     }
 }
 
+fn resolve_cluster_path(opts: &BootstrapFluxCommand) -> Result<String> {
+    if let Some(p) = cluster_path_from_opts_and_env(opts) {
+        return Ok(p);
+    }
+    if !io::stdin().is_terminal() {
+        bail!(
+            "Flux path in repo not set: pass --path, set FLUX_GIT_PATH, or run from a terminal for an interactive prompt"
+        );
+    }
+    loop {
+        let line = prompt(
+            "Path inside the Git repo for Flux manifests (e.g. clusters/prod): ",
+        )?;
+        let t = line.trim();
+        if t.is_empty() {
+            eprintln!("A non-empty path is required.");
+            continue;
+        }
+        return Ok(t.to_string());
+    }
+}
+
 pub fn resolve_inputs(opts: BootstrapFluxCommand) -> Result<ResolvedFluxInputs> {
     let install_script_path = std::env::temp_dir().join(format!(
         "heimdall-flux-install-{}.sh",
@@ -88,13 +119,7 @@ pub fn resolve_inputs(opts: BootstrapFluxCommand) -> Result<ResolvedFluxInputs> 
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "main".to_string());
 
-    let cluster_path = opts
-        .path
-        .clone()
-        .or_else(|| std::env::var("FLUX_GIT_PATH").ok())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| anyhow::anyhow!("--path or FLUX_GIT_PATH is required"))?;
+    let cluster_path = resolve_cluster_path(&opts)?;
 
     let namespace = opts
         .namespace
@@ -225,14 +250,14 @@ pub fn wait_enter_after_deploy_key_prompt() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::git_url_from_opts_and_env;
+    use super::{cluster_path_from_opts_and_env, git_url_from_opts_and_env};
     use crate::cli::{BootstrapFluxCommand, OutputFormat};
 
-    fn flux_cmd(url: Option<&str>) -> BootstrapFluxCommand {
+    fn flux_cmd(url: Option<&str>, path: Option<&str>) -> BootstrapFluxCommand {
         BootstrapFluxCommand {
             url: url.map(String::from),
             branch: None,
-            path: Some("clusters/x".into()),
+            path: path.map(String::from),
             namespace: None,
             kubeconfig: None,
             private_key_file: None,
@@ -249,13 +274,30 @@ mod tests {
     #[test]
     fn git_url_from_opts_trims_flag() {
         assert_eq!(
-            git_url_from_opts_and_env(&flux_cmd(Some("  ssh://git@x/y.git  "))).as_deref(),
+            git_url_from_opts_and_env(&flux_cmd(Some("  ssh://git@x/y.git  "), None)).as_deref(),
             Some("ssh://git@x/y.git")
         );
     }
 
     #[test]
     fn git_url_from_opts_none_when_missing() {
-        assert!(git_url_from_opts_and_env(&flux_cmd(None)).is_none());
+        assert!(git_url_from_opts_and_env(&flux_cmd(None, None)).is_none());
+    }
+
+    #[test]
+    fn cluster_path_from_opts_trims_flag() {
+        assert_eq!(
+            cluster_path_from_opts_and_env(&flux_cmd(
+                None,
+                Some("  clusters/prod  ")
+            ))
+            .as_deref(),
+            Some("clusters/prod")
+        );
+    }
+
+    #[test]
+    fn cluster_path_from_opts_none_when_missing() {
+        assert!(cluster_path_from_opts_and_env(&flux_cmd(None, None)).is_none());
     }
 }

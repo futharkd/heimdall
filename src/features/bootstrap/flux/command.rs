@@ -101,9 +101,14 @@ fn prepare_bootstrap_private_key(cfg: &mut BootstrapFluxConfig) -> Result<()> {
         .with_context(|| format!("read generated public key {pub_path:?}"))?;
 
     eprintln!();
-    eprintln!("Add this SSH public key as a deploy key on your Git forge (write access required):");
-    eprintln!("  GitLab: Project → Settings → Repository → Deploy keys");
-    eprintln!("  GitHub: Repository → Settings → Deploy keys");
+    eprintln!("Add this SSH public key as a deploy key on your Git forge with write access:");
+    eprintln!(
+        "  Why: `flux bootstrap git` pushes the initial Flux manifests and sync metadata into the repo; read-only keys cannot do that."
+    );
+    eprintln!(
+        "  GitLab: Project → Settings → Repository → Deploy keys (enable “Write access” / “Grant write permissions”)"
+    );
+    eprintln!("  GitHub: Repository → Settings → Deploy keys (“Allow write access”)");
     eprintln!();
     eprintln!("{}", pubkey.trim_end());
 

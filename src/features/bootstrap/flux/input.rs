@@ -56,8 +56,7 @@ pub(crate) fn git_url_from_opts_and_env(opts: &BootstrapFluxCommand) -> Option<S
 
 fn resolve_git_url(opts: &BootstrapFluxCommand) -> Result<String> {
     if let Some(url) = git_url_from_opts_and_env(opts) {
-        super::validate::validate_ssh_git_url(&url)?;
-        return Ok(url);
+        return super::validate::finalize_flux_git_url(&url);
     }
     if !io::stdin().is_terminal() {
         bail!(
@@ -65,14 +64,16 @@ fn resolve_git_url(opts: &BootstrapFluxCommand) -> Result<String> {
         );
     }
     loop {
-        let line = prompt("Git SSH clone URL (e.g. ssh://git@gitlab.com/group/repo.git): ")?;
+        let line = prompt(
+            "Git SSH clone URL (e.g. ssh://git@gitlab.com/group/repo.git or git@gitlab.com:group/repo.git): ",
+        )?;
         let t = line.trim();
         if t.is_empty() {
             eprintln!("A non-empty SSH Git URL is required.");
             continue;
         }
-        match super::validate::validate_ssh_git_url(t) {
-            Ok(()) => return Ok(t.to_string()),
+        match super::validate::finalize_flux_git_url(t) {
+            Ok(url) => return Ok(url),
             Err(e) => eprintln!("{e}"),
         }
     }
@@ -238,7 +239,7 @@ pub fn probe_flux_on_path(runner: &dyn CommandRunner) -> bool {
 pub fn wait_enter_after_deploy_key_prompt() -> Result<()> {
     println!();
     print!(
-        "Press Enter after you saved the deploy key on GitLab or GitHub (write access required for bootstrap)… "
+        "Press Enter after you saved the deploy key (with write access — bootstrap must push initial commits to the repo)… "
     );
     io::stdout().flush()?;
     let mut buf = String::new();

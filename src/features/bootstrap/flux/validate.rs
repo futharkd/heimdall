@@ -1,5 +1,33 @@
 use anyhow::{Result, bail};
 
+/// Converts SCP-style `user@host:org/repo.git` to `ssh://user@host/org/repo.git`.
+///
+/// Flux parses `--url` with Go's URL parser, which rejects the colon in `host:path`. Normalizing
+/// avoids `parse "git@…": first path segment in URL cannot contain colon`.
+pub fn normalize_ssh_git_url_for_flux(url: &str) -> String {
+    let t = url.trim();
+    if t.starts_with("ssh://") {
+        return t.to_string();
+    }
+    if let Some(at) = t.find('@') {
+        let after_at = &t[at + 1..];
+        if let Some(colon) = after_at.find(':') {
+            let host = &after_at[..colon];
+            let path = &after_at[colon + 1..];
+            if !host.is_empty() && !path.is_empty() {
+                let user = &t[..at];
+                return format!("ssh://{user}@{host}/{path}");
+            }
+        }
+    }
+    t.to_string()
+}
+
+pub fn finalize_flux_git_url(url: &str) -> Result<String> {
+    validate_ssh_git_url(url)?;
+    Ok(normalize_ssh_git_url_for_flux(url))
+}
+
 pub fn validate_ssh_git_url(url: &str) -> Result<()> {
     let t = url.trim();
     if t.is_empty() {
@@ -21,7 +49,7 @@ pub fn validate_ssh_git_url(url: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_ssh_git_url;
+    use super::{finalize_flux_git_url, normalize_ssh_git_url_for_flux, validate_ssh_git_url};
 
     #[test]
     fn rejects_https() {
@@ -36,5 +64,27 @@ mod tests {
     #[test]
     fn accepts_git_at_scp() {
         assert!(validate_ssh_git_url("git@github.com:org/repo.git").is_ok());
+    }
+
+    #[test]
+    fn normalize_scp_to_ssh_scheme() {
+        assert_eq!(
+            normalize_ssh_git_url_for_flux("git@gitlab.com:futharkd/cluster.git"),
+            "ssh://git@gitlab.com/futharkd/cluster.git"
+        );
+    }
+
+    #[test]
+    fn normalize_leaves_ssh_scheme_unchanged() {
+        let u = "ssh://git@gitlab.com/group/repo.git";
+        assert_eq!(normalize_ssh_git_url_for_flux(u), u);
+    }
+
+    #[test]
+    fn finalize_normalizes_scp() {
+        assert_eq!(
+            finalize_flux_git_url("git@gitlab.com:futharkd/cluster.git").unwrap(),
+            "ssh://git@gitlab.com/futharkd/cluster.git"
+        );
     }
 }

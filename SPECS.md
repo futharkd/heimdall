@@ -64,7 +64,8 @@
   - Flags: `--url` (or `FLUX_GIT_URL`), `--branch` / `FLUX_GIT_BRANCH` (default `main`), `--path` / `FLUX_GIT_PATH`, `--namespace` / `FLUX_NAMESPACE` (default `flux-system`), `--kubeconfig` (default `$KUBECONFIG` or `/etc/rancher/k3s/k3s.yaml`), `--private-key-file`, `--private-key-passphrase` (BYOK encrypted keys → Flux `--password`), `--install-script-url`, `--keep-generated-key`, `--force`, `--dry-run`, `--yes`, `--output human|json`.
   - If **`--url` and `FLUX_GIT_URL` are both unset** and **stdin is a TTY**, Heimdall **prompts** for an SSH Git URL (repeats until input validates). **Non-interactive** runs (no TTY) must set **`--url`** or **`FLUX_GIT_URL`**.
   - Same pattern for **`--path` / `FLUX_GIT_PATH`**: interactive prompt when unset and stdin is a TTY; otherwise pass **`--path`** or **`FLUX_GIT_PATH`**.
-  - Git URL must be SSH (`ssh://…` or `git@host:path`); `https://` is rejected (would need `--token-auth`, not implemented here).
+  - Git URL must be SSH (`ssh://…` or `git@host:path`); `https://` is rejected (would need `--token-auth`, not implemented here). SCP-style `git@host:org/repo.git` is **normalized** to `ssh://git@host/org/repo.git` before `flux bootstrap git` because Flux parses `--url` with Go’s URL parser (which rejects the colon in `host:path`).
+  - Deploy keys need **write** access for **bootstrap** because `flux bootstrap git` **pushes** the initial Flux manifests and sync metadata into the repository; read-only keys cannot complete that step. Ongoing reconciliation is mostly reads from Git, but the first bootstrap commit still requires push permission.
   - Dry-run redacts `--private-key-file=…` and `--password` values in planned `flux bootstrap git` command lines.
 - `heimdall harden ssh`
   - Placeholder only (returns warning status).
@@ -208,7 +209,7 @@ GitLab CI stages:
   - URL validation for agent server URL (`https://` + host)
   - mocked execute reaches `sudo k3s kubectl` verify when prior steps succeed
 - `bootstrap flux` feature tests:
-  - SSH URL validation (`ssh://` / `git@…`)
+  - SSH URL validation (`ssh://` / `git@…`); `normalize_ssh_git_url_for_flux` / `finalize_flux_git_url` for SCP → `ssh://`; bootstrap plan passes normalized `--url` to Flux
   - `git_url_from_opts_and_env` trims `--url` and returns `None` when flag and env are unset; `cluster_path_from_opts_and_env` for `--path` / `FLUX_GIT_PATH`
   - plan shapes for bootstrap vs reconcile; skip Flux install when `skip_flux_cli_install`
   - dry-run redaction for `flux bootstrap git` `--private-key-file` and `--password`

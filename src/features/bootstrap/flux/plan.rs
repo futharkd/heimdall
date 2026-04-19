@@ -62,10 +62,11 @@ pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<FluxPlannedOperati
         .ok_or_else(|| anyhow::anyhow!("private key path is not valid UTF-8"))?
         .to_string();
 
+    let git_url = super::validate::normalize_ssh_git_url_for_flux(&config.git_url);
     let mut bootstrap_args = vec![
         "bootstrap".to_string(),
         "git".to_string(),
-        format!("--url={}", config.git_url),
+        format!("--url={git_url}"),
         format!("--private-key-file={pk_str}"),
         format!("--branch={}", config.branch),
         format!("--path={}", config.cluster_path),
@@ -232,5 +233,22 @@ mod tests {
         let plan = build_plan(&c).expect("plan");
         assert!(!plan.iter().any(|o| o.id == "download_flux_install_script"));
         assert_eq!(plan.first().map(|o| o.id), Some("flux_bootstrap_git"));
+    }
+
+    #[test]
+    fn bootstrap_plan_normalizes_scp_git_url_for_flux_cli() {
+        let mut c = base_config();
+        c.git_url = "git@gitlab.com:futharkd/cluster.git".to_string();
+        let plan = build_plan(&c).expect("plan");
+        let bootstrap = plan
+            .iter()
+            .find(|o| o.id == "flux_bootstrap_git")
+            .expect("bootstrap");
+        assert!(
+            bootstrap
+                .args
+                .iter()
+                .any(|a| { a.as_str() == "--url=ssh://git@gitlab.com/futharkd/cluster.git" })
+        );
     }
 }

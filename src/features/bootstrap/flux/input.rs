@@ -72,7 +72,8 @@ fn parse_default_branch_from_ls_remote(stdout: &str) -> Option<String> {
         if rhs != "HEAD" {
             return None;
         }
-        lhs.strip_prefix("ref: refs/heads/").map(ToString::to_string)
+        lhs.strip_prefix("ref: refs/heads/")
+            .map(ToString::to_string)
     })
 }
 
@@ -121,7 +122,12 @@ where
 }
 
 fn resolve_branch(opts: &BootstrapFluxCommand, git_url: &str) -> Result<String> {
-    resolve_branch_with(opts, git_url, io::stdin().is_terminal(), detect_remote_default_branch)
+    resolve_branch_with(
+        opts,
+        git_url,
+        io::stdin().is_terminal(),
+        detect_remote_default_branch,
+    )
 }
 
 fn resolve_git_url(opts: &BootstrapFluxCommand) -> Result<String> {
@@ -386,8 +392,9 @@ mod tests {
     fn resolve_branch_prefers_explicit_over_detection() {
         let mut cmd = flux_cmd(None, None);
         cmd.branch = Some("main".to_string());
-        let branch = resolve_branch_with(&cmd, "ssh://git@x/y.git", false, |_| Some("master".into()))
-            .expect("branch");
+        let branch =
+            resolve_branch_with(&cmd, "ssh://git@x/y.git", false, |_| Some("master".into()))
+                .expect("branch");
         assert_eq!(branch, "main");
     }
 
@@ -403,8 +410,8 @@ mod tests {
     #[test]
     fn resolve_branch_non_interactive_fails_when_undetected() {
         let cmd = flux_cmd(None, None);
-        let err = resolve_branch_with(&cmd, "ssh://git@x/y.git", false, |_| None)
-            .expect_err("must fail");
+        let err =
+            resolve_branch_with(&cmd, "ssh://git@x/y.git", false, |_| None).expect_err("must fail");
         let msg = err.to_string();
         assert!(msg.contains("Flux branch not set"));
         assert!(msg.contains("--branch"));

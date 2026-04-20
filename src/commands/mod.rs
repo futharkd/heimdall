@@ -1,7 +1,7 @@
 use anyhow::Result;
 
-use crate::cli::{BootstrapAction, Command, HardenAction, VerifyAction};
-use crate::features::{bootstrap, update, verify};
+use crate::cli::{BootstrapAction, Command, HardenAction, ResetAction, VerifyAction};
+use crate::features::{bootstrap, reset, update, verify};
 use crate::runtime::ExitStatus;
 
 pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
@@ -20,6 +20,9 @@ pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
                 println!("harden ssh is scaffolded but not implemented yet");
                 Ok(ExitStatus::Warning)
             }
+        },
+        Command::Reset(cmd) => match cmd.action {
+            ResetAction::Cluster(opts) => reset::cluster::command::run(opts, &cli.global),
         },
         Command::Update(opts) => update::command::run(opts, &cli.global),
     }

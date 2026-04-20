@@ -47,6 +47,7 @@ pub struct Cli {
 pub enum Command {
     Bootstrap(BootstrapCommand),
     Harden(HardenCommand),
+    Reset(ResetCommand),
     Verify(VerifyCommand),
     Update(UpdateCommand),
 }
@@ -63,6 +64,32 @@ pub enum BootstrapAction {
 pub struct BootstrapCommand {
     #[command(subcommand)]
     pub action: BootstrapAction,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ResetAction {
+    Cluster(ResetClusterCommand),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ResetCommand {
+    #[command(subcommand)]
+    pub action: ResetAction,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ResetClusterCommand {
+    /// Skip destructive execution and print the planned reset commands only.
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Skip the yes/no prompt; still requires typed destructive confirmation via --confirm (or TTY prompt).
+    #[arg(long)]
+    pub yes: bool,
+    /// Destructive confirmation token. Must equal `reset-cluster`.
+    #[arg(long)]
+    pub confirm: Option<String>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
 }
 
 #[derive(Debug, clap::Args)]

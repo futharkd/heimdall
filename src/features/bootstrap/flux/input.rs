@@ -1,5 +1,6 @@
 use std::io::{self, ErrorKind, IsTerminal, Write};
 use std::path::PathBuf;
+use std::process::Command;
 
 use anyhow::{Result, bail};
 
@@ -54,6 +55,73 @@ pub(crate) fn git_url_from_opts_and_env(opts: &BootstrapFluxCommand) -> Option<S
         .or_else(|| std::env::var("FLUX_GIT_URL").ok())
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
+}
+
+/// Branch from `--branch` or `FLUX_GIT_BRANCH` when set (trimmed, non-empty).
+pub(crate) fn branch_from_opts_and_env(opts: &BootstrapFluxCommand) -> Option<String> {
+    opts.branch
+        .clone()
+        .or_else(|| std::env::var("FLUX_GIT_BRANCH").ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+fn parse_default_branch_from_ls_remote(stdout: &str) -> Option<String> {
+    stdout.lines().find_map(|line| {
+        let (lhs, rhs) = line.split_once('\t')?;
+        if rhs != "HEAD" {
+            return None;
+        }
+        lhs.strip_prefix("ref: refs/heads/").map(ToString::to_string)
+    })
+}
+
+fn detect_remote_default_branch(git_url: &str) -> Option<String> {
+    let output = Command::new("git")
+        .args(["ls-remote", "--symref", git_url, "HEAD"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_default_branch_from_ls_remote(&stdout)
+}
+
+fn resolve_branch_with<F>(
+    opts: &BootstrapFluxCommand,
+    git_url: &str,
+    stdin_is_tty: bool,
+    detect_default_branch: F,
+) -> Result<String>
+where
+    F: FnOnce(&str) -> Option<String>,
+{
+    if let Some(branch) = branch_from_opts_and_env(opts) {
+        return Ok(branch);
+    }
+
+    if let Some(branch) = detect_default_branch(git_url) {
+        return Ok(branch);
+    }
+
+    if !stdin_is_tty {
+        bail!(
+            "Flux branch not set and remote default branch could not be detected; pass --branch, set FLUX_GIT_BRANCH, or run from a terminal for an interactive prompt"
+        );
+    }
+
+    let entered = prompt("Git branch for Flux bootstrap [main]: ")?;
+    let trimmed = entered.trim();
+    if trimmed.is_empty() {
+        Ok("main".to_string())
+    } else {
+        Ok(trimmed.to_string())
+    }
+}
+
+fn resolve_branch(opts: &BootstrapFluxCommand, git_url: &str) -> Result<String> {
+    resolve_branch_with(opts, git_url, io::stdin().is_terminal(), detect_remote_default_branch)
 }
 
 fn resolve_git_url(opts: &BootstrapFluxCommand) -> Result<String> {
@@ -112,13 +180,7 @@ pub fn resolve_inputs(opts: BootstrapFluxCommand) -> Result<ResolvedFluxInputs> 
 
     let git_url = resolve_git_url(&opts)?;
 
-    let branch = opts
-        .branch
-        .clone()
-        .or_else(|| std::env::var("FLUX_GIT_BRANCH").ok())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "main".to_string());
+    let branch = resolve_branch(&opts, &git_url)?;
 
     let cluster_path = resolve_cluster_path(&opts)?;
 
@@ -267,8 +329,9 @@ pub fn wait_enter_after_deploy_key_prompt() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        cluster_path_from_opts_and_env, git_url_from_opts_and_env,
-        kubeconfig_requires_elevated_access,
+        branch_from_opts_and_env, cluster_path_from_opts_and_env, git_url_from_opts_and_env,
+        kubeconfig_requires_elevated_access, parse_default_branch_from_ls_remote,
+        resolve_branch_with,
     };
     use crate::cli::{BootstrapFluxCommand, OutputFormat};
 
@@ -301,6 +364,51 @@ mod tests {
     #[test]
     fn git_url_from_opts_none_when_missing() {
         assert!(git_url_from_opts_and_env(&flux_cmd(None, None)).is_none());
+    }
+
+    #[test]
+    fn branch_from_opts_trims_flag() {
+        let mut cmd = flux_cmd(None, None);
+        cmd.branch = Some("  master  ".to_string());
+        assert_eq!(branch_from_opts_and_env(&cmd).as_deref(), Some("master"));
+    }
+
+    #[test]
+    fn parse_default_branch_from_symref_output() {
+        let stdout = "ref: refs/heads/master\tHEAD\n0123456789abcdef\tHEAD\n";
+        assert_eq!(
+            parse_default_branch_from_ls_remote(stdout).as_deref(),
+            Some("master")
+        );
+    }
+
+    #[test]
+    fn resolve_branch_prefers_explicit_over_detection() {
+        let mut cmd = flux_cmd(None, None);
+        cmd.branch = Some("main".to_string());
+        let branch = resolve_branch_with(&cmd, "ssh://git@x/y.git", false, |_| Some("master".into()))
+            .expect("branch");
+        assert_eq!(branch, "main");
+    }
+
+    #[test]
+    fn resolve_branch_uses_detected_remote_default() {
+        let cmd = flux_cmd(None, None);
+        let branch =
+            resolve_branch_with(&cmd, "ssh://git@x/y.git", false, |_| Some("master".into()))
+                .expect("branch");
+        assert_eq!(branch, "master");
+    }
+
+    #[test]
+    fn resolve_branch_non_interactive_fails_when_undetected() {
+        let cmd = flux_cmd(None, None);
+        let err = resolve_branch_with(&cmd, "ssh://git@x/y.git", false, |_| None)
+            .expect_err("must fail");
+        let msg = err.to_string();
+        assert!(msg.contains("Flux branch not set"));
+        assert!(msg.contains("--branch"));
+        assert!(msg.contains("FLUX_GIT_BRANCH"));
     }
 
     #[test]

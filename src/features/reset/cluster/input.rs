@@ -42,9 +42,7 @@ fn ensure_destructive_confirmed(opts: &ResetClusterCommand) -> Result<()> {
     }
 
     if !io::stdin().is_terminal() {
-        bail!(
-            "non-interactive destructive reset requires --confirm {RESET_CONFIRM_TOKEN}"
-        );
+        bail!("non-interactive destructive reset requires --confirm {RESET_CONFIRM_TOKEN}");
     }
 
     let entered = prompt(&format!(

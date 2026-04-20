@@ -61,9 +61,7 @@ mod tests {
         let Command::Reset(reset) = parsed.command else {
             panic!("expected reset");
         };
-        let c = match reset.action {
-            ResetAction::Cluster(c) => c,
-        };
+        let ResetAction::Cluster(c) = reset.action;
         assert!(c.dry_run);
         assert!(c.yes);
         assert_eq!(c.confirm.as_deref(), Some("reset-cluster"));

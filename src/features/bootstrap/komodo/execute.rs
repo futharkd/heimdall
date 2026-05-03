@@ -78,7 +78,7 @@ pub fn execute_plan(
                 } else {
                     // Actually write the file
                     if let Some(parent) = path.parent() {
-                        if let Err(_) = fs::create_dir_all(parent) {
+                        if fs::create_dir_all(parent).is_err() {
                             OperationStatus::Failed
                         } else {
                             match fs::write(&path, &content) {

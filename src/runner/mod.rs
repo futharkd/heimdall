@@ -19,6 +19,15 @@ pub trait CommandRunner {
         env: &[(&str, &str)],
         mode: IoMode,
     ) -> Result<std::process::Output>;
+
+    fn run_with_stdin(
+        &self,
+        program: &str,
+        args: &[&str],
+        env: &[(&str, &str)],
+        stdin_data: &str,
+        mode: IoMode,
+    ) -> Result<std::process::Output>;
 }
 
 pub struct LocalRunner;
@@ -51,6 +60,78 @@ impl CommandRunner for LocalRunner {
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped());
                 let mut child = command.spawn()?;
+                let stdout = child
+                    .stdout
+                    .take()
+                    .ok_or_else(|| anyhow::anyhow!("missing child stdout"))?;
+                let stderr = child
+                    .stderr
+                    .take()
+                    .ok_or_else(|| anyhow::anyhow!("missing child stderr"))?;
+
+                let stdout_handle = thread::spawn(move || {
+                    let mut lock = io::stdout().lock();
+                    tee_reader(stdout, &mut lock)
+                });
+                let stderr_handle = thread::spawn(move || {
+                    let mut lock = io::stderr().lock();
+                    tee_reader(stderr, &mut lock)
+                });
+
+                let status = child.wait()?;
+
+                let stdout_buf = stdout_handle
+                    .join()
+                    .map_err(|_| anyhow::anyhow!("stdout tee thread panicked"))??;
+                let stderr_buf = stderr_handle
+                    .join()
+                    .map_err(|_| anyhow::anyhow!("stderr tee thread panicked"))??;
+
+                Ok(std::process::Output {
+                    status,
+                    stdout: stdout_buf,
+                    stderr: stderr_buf,
+                })
+            }
+        }
+    }
+
+    fn run_with_stdin(
+        &self,
+        program: &str,
+        args: &[&str],
+        env: &[(&str, &str)],
+        stdin_data: &str,
+        mode: IoMode,
+    ) -> Result<std::process::Output> {
+        match mode {
+            IoMode::Buffered => {
+                let mut command = Command::new(program);
+                command.args(args);
+                for &(key, value) in env {
+                    command.env(key, value);
+                }
+                command.stdin(Stdio::piped());
+                let mut child = command.spawn()?;
+                if let Some(mut stdin) = child.stdin.take() {
+                    stdin.write_all(stdin_data.as_bytes())?;
+                }
+                Ok(child.wait_with_output()?)
+            }
+            IoMode::LiveTee => {
+                let mut command = Command::new(program);
+                command.args(args);
+                for &(key, value) in env {
+                    command.env(key, value);
+                }
+                command
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped());
+                let mut child = command.spawn()?;
+                if let Some(mut stdin) = child.stdin.take() {
+                    stdin.write_all(stdin_data.as_bytes())?;
+                }
                 let stdout = child
                     .stdout
                     .take()

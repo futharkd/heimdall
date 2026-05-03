@@ -53,12 +53,12 @@ pub fn load() -> Result<(HeimdallConfig, PathBuf)> {
     }
 
     // Try ~/.heimdall/config.yaml
-    if let Some(ref path) = home_path {
-        if path.exists() {
-            let content = fs::read_to_string(path)?;
-            let config: HeimdallConfig = serde_yaml::from_str(&content)?;
-            return Ok((config, path.clone()));
-        }
+    if let Some(ref path) = home_path
+        && path.exists()
+    {
+        let content = fs::read_to_string(path)?;
+        let config: HeimdallConfig = serde_yaml::from_str(&content)?;
+        return Ok((config, path.clone()));
     }
 
     // Neither exists; return default + preferred write location
@@ -70,10 +70,11 @@ pub fn load() -> Result<(HeimdallConfig, PathBuf)> {
 /// Creates parent directories if needed.
 pub fn save(config: &HeimdallConfig, path: &Path) -> Result<()> {
     // Create parent directory if it doesn't exist
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() && !parent.exists() {
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+        && !parent.exists()
+    {
+        fs::create_dir_all(parent)?;
     }
 
     let yaml = serde_yaml::to_string(config)?;
@@ -87,22 +88,23 @@ mod tests {
 
     #[test]
     fn test_config_serialize_deserialize() {
-        let mut config = HeimdallConfig::default();
-        config.harden = Some(HardenConfig {
-            ssh: Some(SshHardenState {
-                port: Some(2222),
-                root_login_disabled: true,
-                password_auth_disabled: false,
+        let config = HeimdallConfig {
+            harden: Some(HardenConfig {
+                ssh: Some(SshHardenState {
+                    port: Some(2222),
+                    root_login_disabled: true,
+                    password_auth_disabled: false,
+                }),
+                firewall: Some(FirewallHardenState {
+                    applied: true,
+                    presets: vec!["ssh".to_string(), "established".to_string()],
+                    custom_rules: vec![CustomFirewallRule {
+                        port: 8080,
+                        protocol: "tcp".to_string(),
+                    }],
+                }),
             }),
-            firewall: Some(FirewallHardenState {
-                applied: true,
-                presets: vec!["ssh".to_string(), "established".to_string()],
-                custom_rules: vec![CustomFirewallRule {
-                    port: 8080,
-                    protocol: "tcp".to_string(),
-                }],
-            }),
-        });
+        };
 
         let yaml = serde_yaml::to_string(&config).expect("serialize");
         let parsed: HeimdallConfig = serde_yaml::from_str(&yaml).expect("deserialize");

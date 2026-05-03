@@ -3,6 +3,7 @@ use tracing_subscriber::EnvFilter;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitStatus {
     Success,
+    #[allow(dead_code)]
     Warning,
     Failure,
 }

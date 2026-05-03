@@ -60,8 +60,7 @@ volumes:
 }
 
 pub fn compose_yaml_periphery(_config: &BootstrapKomodoConfig) -> String {
-    format!(
-        r#"################################
+    r#"################################
 # 🦎 KOMODO PERIPHERY COMPOSE 🦎 #
 ################################
 
@@ -79,7 +78,7 @@ services:
       - /proc:/proc
       - ${{PERIPHERY_ROOT_DIRECTORY:-/etc/komodo}}:${{PERIPHERY_ROOT_DIRECTORY:-/etc/komodo}}
 "#
-    )
+    .to_string()
 }
 
 pub fn compose_env_core(config: &BootstrapKomodoConfig) -> String {
@@ -165,11 +164,7 @@ PERIPHERY_PRETTY_STARTUP_CONFIG=false
 
 pub fn compose_env_periphery(config: &BootstrapKomodoConfig) -> String {
     let core_address = config.core_address.as_deref().unwrap_or("ws://core:9120");
-    let core_public_key_ref = if config.core_public_key_content.is_some() {
-        "file:/config/keys/core.pub"
-    } else {
-        "file:/config/keys/core.pub"
-    };
+    let core_public_key_ref = "file:/config/keys/core.pub";
 
     format!(
         "COMPOSE_KOMODO_IMAGE_TAG={image_tag}

@@ -57,10 +57,10 @@ fn read_ssh_port() -> Result<u16> {
         Ok(content) => {
             for line in content.lines() {
                 let trimmed = line.trim();
-                if trimmed.starts_with("Port ") {
-                    if let Ok(port) = trimmed[5..].trim().parse::<u16>() {
-                        return Ok(port);
-                    }
+                if let Some(port_str) = trimmed.strip_prefix("Port ")
+                    && let Ok(port) = port_str.trim().parse::<u16>()
+                {
+                    return Ok(port);
                 }
             }
             Ok(22)

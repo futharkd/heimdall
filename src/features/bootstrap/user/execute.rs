@@ -38,7 +38,13 @@ pub fn execute_plan(
         }
 
         let arg_refs: Vec<&str> = operation.args.iter().map(String::as_str).collect();
-        match runner.run_with_env_io(&operation.command, &arg_refs, &[], io_mode) {
+        let result = if let Some(stdin_data) = &operation.stdin_input {
+            runner.run_with_stdin(&operation.command, &arg_refs, &[], stdin_data, io_mode)
+        } else {
+            runner.run_with_env_io(&operation.command, &arg_refs, &[], io_mode)
+        };
+
+        match result {
             Ok(output) if output.status.success() => results.push(OperationResult {
                 id: operation.id,
                 description: operation.description,
@@ -112,6 +118,30 @@ mod tests {
                 stderr: vec![],
             })
         }
+
+        fn run_with_stdin(
+            &self,
+            _program: &str,
+            _args: &[&str],
+            _env: &[(&str, &str)],
+            _stdin_data: &str,
+            _mode: IoMode,
+        ) -> Result<std::process::Output> {
+            let mut guard = self.calls.lock().expect("lock");
+            *guard += 1;
+            if self.fail_after.is_some_and(|n| *guard >= n) {
+                return Ok(std::process::Output {
+                    status: std::os::unix::process::ExitStatusExt::from_raw(1 << 8),
+                    stdout: vec![],
+                    stderr: b"boom".to_vec(),
+                });
+            }
+            Ok(std::process::Output {
+                status: std::os::unix::process::ExitStatusExt::from_raw(0),
+                stdout: b"ok".to_vec(),
+                stderr: vec![],
+            })
+        }
     }
 
     fn config() -> BootstrapUserConfig {
@@ -119,6 +149,7 @@ mod tests {
             user: "admin".to_string(),
             group: "admin".to_string(),
             keys: vec!["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIabc123 user@host".to_string()],
+            password: "testpass".to_string(),
             disable_root_login: true,
             disable_password_auth: false,
             dry_run: false,

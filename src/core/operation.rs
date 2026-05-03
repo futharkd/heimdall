@@ -24,4 +24,5 @@ pub struct PlannedOperation {
     pub command: String,
     pub args: Vec<String>,
     pub requires_confirmation: bool,
+    pub stdin_input: Option<String>,
 }

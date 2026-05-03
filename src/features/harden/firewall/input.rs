@@ -119,14 +119,12 @@ fn parse_custom_rule(rule_str: &str) -> Result<CustomFirewallRule> {
 
 fn read_ssh_port() -> Result<u16> {
     // Try to read from .heimdall config first
-    if let Ok((config, _)) = config::load() {
-        if let Some(harden) = config.harden {
-            if let Some(ssh) = harden.ssh {
-                if let Some(port) = ssh.port {
-                    return Ok(port);
-                }
-            }
-        }
+    if let Ok((config, _)) = config::load()
+        && let Some(harden) = config.harden
+        && let Some(ssh) = harden.ssh
+        && let Some(port) = ssh.port
+    {
+        return Ok(port);
     }
 
     // Read from sshd_config
@@ -134,10 +132,10 @@ fn read_ssh_port() -> Result<u16> {
         Ok(content) => {
             for line in content.lines() {
                 let trimmed = line.trim();
-                if trimmed.starts_with("Port ") {
-                    if let Ok(port) = trimmed[5..].trim().parse::<u16>() {
-                        return Ok(port);
-                    }
+                if let Some(port_str) = trimmed.strip_prefix("Port ")
+                    && let Ok(port) = port_str.trim().parse::<u16>()
+                {
+                    return Ok(port);
                 }
             }
             Ok(22) // default SSH port

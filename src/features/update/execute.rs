@@ -519,6 +519,21 @@ mod tests {
                 stderr: Vec::new(),
             })
         }
+
+        fn run_with_stdin(
+            &self,
+            _program: &str,
+            _args: &[&str],
+            _env: &[(&str, &str)],
+            _stdin_data: &str,
+            _mode: IoMode,
+        ) -> anyhow::Result<std::process::Output> {
+            Ok(std::process::Output {
+                status: success_exit_status(),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            })
+        }
     }
 
     fn sample_config(exe: PathBuf, force: bool, dry_run: bool, yes: bool) -> UpdateConfig {

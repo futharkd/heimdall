@@ -22,7 +22,7 @@ pub fn format_report_human(report: &BootstrapKomodoReport, style: &Style) -> Str
             OperationStatus::Skipped => format!("{}  ", style.dim("[SKIP]")),
         };
 
-        lines.push(format!("{} {}", status_str, style.bold(&op.description)));
+        lines.push(format!("{} {}", status_str, style.bold(op.description)));
 
         if !op.detail.is_empty() {
             lines.push(format!("  {}", style.dim(&op.detail)));

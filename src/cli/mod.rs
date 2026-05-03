@@ -65,7 +65,7 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Workflow: install and configure infrastructure components (k3s, Flux, NetBird, user + SSH).
-    Bootstrap(BootstrapCommand),
+    Bootstrap(Box<BootstrapCommand>),
     /// Workflow: harden infrastructure security (SSH config, firewall, etc.).
     Harden(HardenCommand),
     /// Workflow: reset infrastructure to initial state (k3s cluster wipe).
@@ -277,6 +277,9 @@ pub struct BootstrapUserCommand {
     pub key_files: Vec<String>,
     #[arg(long = "key")]
     pub keys: Vec<String>,
+    /// User password for sudo authentication (prompted interactively if omitted)
+    #[arg(long)]
+    pub password: Option<String>,
     #[arg(long)]
     pub disable_root_login: bool,
     #[arg(long)]

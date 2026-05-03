@@ -226,6 +226,21 @@ mod tests {
                 stderr: vec![],
             })
         }
+
+        fn run_with_stdin(
+            &self,
+            _program: &str,
+            _args: &[&str],
+            _env: &[(&str, &str)],
+            _stdin_data: &str,
+            _mode: IoMode,
+        ) -> anyhow::Result<std::process::Output> {
+            Ok(std::process::Output {
+                status: std::os::unix::process::ExitStatusExt::from_raw(0),
+                stdout: vec![],
+                stderr: vec![],
+            })
+        }
     }
 
     #[test]

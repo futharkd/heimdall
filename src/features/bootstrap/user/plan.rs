@@ -31,6 +31,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
                 ),
             ],
             requires_confirmation: false,
+            stdin_input: None,
         },
         PlannedOperation {
             id: "ensure_user",
@@ -45,6 +46,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
                 ),
             ],
             requires_confirmation: false,
+            stdin_input: None,
         },
         PlannedOperation {
             id: "ensure_ssh_dir",
@@ -62,6 +64,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
                 format!("/home/{}/.ssh", config.user),
             ],
             requires_confirmation: false,
+            stdin_input: None,
         },
     ];
 
@@ -73,6 +76,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         command: "sudo".to_string(),
         args: vec!["touch".to_string(), authorized_keys_path.clone()],
         requires_confirmation: false,
+        stdin_input: None,
     });
     operations.push(PlannedOperation {
         id: "prepare_authorized_keys_temp",
@@ -84,6 +88,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             authorized_keys_tmp_path.clone(),
         ],
         requires_confirmation: false,
+        stdin_input: None,
     });
     for key in &config.keys {
         operations.push(PlannedOperation {
@@ -102,6 +107,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
                 ),
             ],
             requires_confirmation: false,
+            stdin_input: None,
         });
     }
     operations.push(PlannedOperation {
@@ -114,6 +120,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             authorized_keys_path.clone(),
         ],
         requires_confirmation: false,
+        stdin_input: None,
     });
 
     operations.push(PlannedOperation {
@@ -126,6 +133,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             authorized_keys_path.clone(),
         ],
         requires_confirmation: false,
+        stdin_input: None,
     });
     operations.push(PlannedOperation {
         id: "chmod_authorized_keys",
@@ -133,6 +141,16 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         command: "sudo".to_string(),
         args: vec!["chmod".to_string(), "600".to_string(), authorized_keys_path],
         requires_confirmation: false,
+        stdin_input: None,
+    });
+
+    operations.push(PlannedOperation {
+        id: "set_password",
+        description: "Set user password via chpasswd",
+        command: "sudo".to_string(),
+        args: vec!["chpasswd".to_string()],
+        requires_confirmation: false,
+        stdin_input: Some(format!("{}:{}\n", config.user, config.password)),
     });
 
     if config.disable_root_login {
@@ -147,6 +165,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
                 "/etc/ssh/sshd_config".to_string(),
             ],
             requires_confirmation: true,
+            stdin_input: None,
         });
     }
 
@@ -162,6 +181,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
                 "/etc/ssh/sshd_config".to_string(),
             ],
             requires_confirmation: true,
+            stdin_input: None,
         });
     }
 
@@ -172,6 +192,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             command: "sudo".to_string(),
             args: vec!["sshd".to_string(), "-t".to_string()],
             requires_confirmation: true,
+            stdin_input: None,
         });
         operations.push(PlannedOperation {
             id: "reload_sshd",
@@ -183,6 +204,7 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
                 "sshd".to_string(),
             ],
             requires_confirmation: true,
+            stdin_input: None,
         });
     }
 
@@ -199,6 +221,7 @@ mod tests {
             user: "admin".to_string(),
             group: "admin".to_string(),
             keys: vec!["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIabc123 user@host".to_string()],
+            password: "testpass".to_string(),
             disable_root_login: true,
             disable_password_auth: false,
             dry_run: false,

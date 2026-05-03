@@ -168,10 +168,7 @@ fn resolve_db_password(opts: &BootstrapKomodoCommand) -> Result<String> {
     }
 }
 
-fn resolve_core_address(
-    mode: KomodoMode,
-    opts: &BootstrapKomodoCommand,
-) -> Result<Option<String>> {
+fn resolve_core_address(mode: KomodoMode, opts: &BootstrapKomodoCommand) -> Result<Option<String>> {
     if mode != KomodoMode::Periphery {
         return Ok(opts.core_address.clone());
     }

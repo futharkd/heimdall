@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use inquire::{Confirm, Text};
+use inquire::{Confirm, Password, Text};
 
 use crate::cli::{BootstrapUserCommand, OutputFormat};
 
@@ -18,6 +18,7 @@ pub struct BootstrapUserConfig {
     pub user: String,
     pub group: String,
     pub keys: Vec<String>,
+    pub password: String,
     pub disable_root_login: bool,
     pub disable_password_auth: bool,
     pub dry_run: bool,
@@ -71,6 +72,11 @@ pub fn resolve_inputs(opts: BootstrapUserCommand) -> Result<ResolvedInputs> {
         }
     }
 
+    let password = match opts.password {
+        Some(p) => p,
+        None => map_inquire(Password::new("Password for the new user (used for sudo):").prompt())?,
+    };
+
     let risky = opts.disable_root_login || opts.disable_password_auth;
     let confirmed = if opts.yes || !risky {
         true
@@ -83,6 +89,7 @@ pub fn resolve_inputs(opts: BootstrapUserCommand) -> Result<ResolvedInputs> {
             user,
             group,
             keys,
+            password,
             disable_root_login: opts.disable_root_login,
             disable_password_auth: opts.disable_password_auth,
             dry_run: opts.dry_run,

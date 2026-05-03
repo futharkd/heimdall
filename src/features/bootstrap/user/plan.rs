@@ -49,6 +49,22 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             stdin_input: None,
         },
         PlannedOperation {
+            id: "grant_sudo_access",
+            description: "Add user to sudo/wheel group for administrator privileges",
+            command: "sudo".to_string(),
+            args: vec![
+                "sh".to_string(),
+                "-c".to_string(),
+                format!(
+                    "getent group sudo >/dev/null 2>&1 && usermod -aG sudo {user}; \
+                     getent group wheel >/dev/null 2>&1 && usermod -aG wheel {user}; true",
+                    user = config.user
+                ),
+            ],
+            requires_confirmation: false,
+            stdin_input: None,
+        },
+        PlannedOperation {
             id: "ensure_ssh_dir",
             description: "Ensure .ssh directory and permissions",
             command: "sudo".to_string(),
@@ -260,6 +276,25 @@ mod tests {
         assert!(
             plan.iter()
                 .any(|op| op.id == "promote_authorized_keys_temp")
+        );
+    }
+
+    #[test]
+    fn plan_grants_sudo_access() {
+        let c = config();
+        let plan = build_plan(&c).expect("plan should build");
+        let op = plan
+            .iter()
+            .find(|op| op.id == "grant_sudo_access")
+            .expect("grant_sudo_access operation must exist");
+        let args_str = op.args.join(" ");
+        assert!(
+            args_str.contains("usermod -aG sudo"),
+            "args must reference sudo group: {args_str}"
+        );
+        assert!(
+            args_str.contains("usermod -aG wheel"),
+            "args must reference wheel group: {args_str}"
         );
     }
 }

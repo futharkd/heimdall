@@ -125,14 +125,15 @@ Planned operation stages:
 
 1. Ensure group exists (idempotent)
 2. Ensure user exists (idempotent)
-3. Ensure `.ssh` directory ownership and permissions
-4. Ensure `authorized_keys` exists
-5. Prepare temp key file copy (`.authorized_keys.tmp`)
-6. Append missing keys into temp file only (idempotent with `grep -qxF`)
-7. Atomically promote temp file to `authorized_keys`
-8. Set ownership and mode on `authorized_keys`
-9. Optional hardening updates to `/etc/ssh/sshd_config` (guarded)
-10. Validate sshd config and reload service when hardening applied
+3. Grant sudo/wheel group membership (idempotent; handles both Debian and RHEL/Fedora/Arch)
+4. Ensure `.ssh` directory ownership and permissions
+5. Ensure `authorized_keys` exists
+6. Prepare temp key file copy (`.authorized_keys.tmp`)
+7. Append missing keys into temp file only (idempotent with `grep -qxF`)
+8. Atomically promote temp file to `authorized_keys`
+9. Set ownership and mode on `authorized_keys`
+10. Optional hardening updates to `/etc/ssh/sshd_config` (guarded)
+11. Validate sshd config and reload service when hardening applied
 
 Safety behavior:
 

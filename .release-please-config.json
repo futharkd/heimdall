@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "rust",
+  "create-github-release": false,
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "package-name": "heimdall",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "tag-name": "v${version}"
+    }
+  }
+}

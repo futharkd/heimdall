@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/futharkd/heimdall/compare/v0.2.2...v0.2.3) (2026-05-03)
+
+
+### Bug Fixes
+
+* use proper ids for release workflows ([000b1e7](https://github.com/futharkd/heimdall/commit/000b1e79db3090dfae9900edf55c2cd3419189db))
+
 ## [0.2.2](https://github.com/futharkd/heimdall/compare/v0.2.1...v0.2.2) (2026-05-03)
 
 

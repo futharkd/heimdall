@@ -4,7 +4,7 @@
 
 `heimdall` is a modular Rust CLI for infrastructure workflows with safety-first execution, clear command boundaries, and CI-enforced quality gates.
 
-- Repository: `https://gitlab.com/futharkd/heimdall`
+- Repository: `https://github.com/futharkd/heimdall`
 - Crate: `heimdall`
 - Binary: `heimdall`
 - Rust edition: `2024`
@@ -51,10 +51,10 @@
   - Supports `--dry-run`, `--yes`, `--force`, and `--output human|json`.
 - `heimdall update`
   - Implemented (Linux x86_64 only).
-  - Resolves GitLab Generic Package URLs from `CARGO_PKG_REPOSITORY` (same layout as README / CI: `.../packages/generic/heimdall/{latest|tag}/heimdall-linux-amd64` plus `.sha256`).
+  - Resolves GitHub Releases URLs from `CARGO_PKG_REPOSITORY` (layout: `https://github.com/owner/repo/releases/{latest|tag}/heimdall-linux-amd64` plus `.sha256`).
   - Fetches the published `.sha256`, compares it to the SHA256 of the file behind `current_exe()`, and skips the binary download when digests match unless `--force`.
   - `--force` skips only that digest-equality short-circuit; the downloaded artifact is still verified against the remote `.sha256` before `rename`.
-  - Uses `curl` subprocesses via `CommandRunner`; optional `GITLAB_TOKEN` / `PRIVATE_TOKEN` is passed as `PRIVATE-TOKEN` on `curl` and is **redacted** in all reported command strings.
+  - Uses `curl` subprocesses via `CommandRunner`; optional `GITHUB_TOKEN` is passed as `Authorization: token` header on `curl` and is **redacted** in all reported command strings.
   - Supports `--dry-run`, `--yes`, `--output human|json`, and `--tag` for a non-`latest` package version string.
 - `heimdall bootstrap flux`
   - Implemented (SSH deploy key + [`flux bootstrap git`](https://fluxcd.io/flux/cmd/flux_bootstrap_git/); no `--token-auth` / HTTPS PAT in this version).
@@ -167,19 +167,13 @@ Notes:
 
 ## Quality gates and CI
 
-GitLab CI stages:
+GitHub Actions workflow (`.github/workflows/ci.yml`):
 
-- `test`:
-  - `cargo fmt --check`
-  - `cargo clippy --all-targets --all-features -- -D warnings`
-  - `cargo test --all-targets --all-features`
-- `build`:
-  - `cargo build --release`
-  - publishes `dist/heimdall-linux-amd64` and `.sha256` as job artifacts
-- `publish`:
-  - uploads binary + checksum to GitLab Generic Package Registry
-  - `main` branch => `heimdall/latest`
-  - tags => `heimdall/<tag>`
+- `fmt`: `cargo fmt --check`
+- `clippy`: `cargo clippy --all-targets --all-features -- -D warnings`
+- `test`: `cargo test --all-targets --all-features`
+- `build`: `cargo build --release`, creates `dist/heimdall-linux-amd64` and `.sha256` artifacts
+- `release`: uploads binary + checksum to GitHub Releases (on tags matching `v*`)
 
 ## Current test coverage
 

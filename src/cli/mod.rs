@@ -500,11 +500,11 @@ pub struct VerifyDoctorCommand {
 }
 
 #[derive(Debug, clap::Args)]
-#[command(about = "Replace the running binary with a newer version from the package registry.")]
+#[command(about = "Replace the running binary with a newer version from GitHub Releases.")]
 #[command(
-    long_about = "Fetch remote .sha256 from GitLab Generic Package Registry (heimdall/{latest|tag}/heimdall-linux-amd64.sha256). \
+    long_about = "Fetch remote .sha256 from GitHub Releases (releases/{latest|tag}/heimdall-linux-amd64.sha256). \
 Compare to SHA256 of the running binary; skip download if match (unless --force). Requires curl on PATH and write access to binary directory. \
-Linux x86_64 only. Optional GITLAB_TOKEN / PRIVATE_TOKEN for authentication (redacted in output). \
+Linux x86_64 only. Optional GITHUB_TOKEN for authentication (redacted in output). \
 Supports --dry-run (resolve URLs + fetch checksum only), --yes (skip confirmation), --force (re-download), --tag (non-latest version), --output json."
 )]
 pub struct UpdateCommand {

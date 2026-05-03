@@ -10,7 +10,7 @@ Rust CLI for **bootstrap**, **verify**, and **self-update** on Linux (x86_64 for
 | `heimdall bootstrap user` | Admin user + SSH `authorized_keys` |
 | `heimdall bootstrap netbird` | Official NetBird `install.sh`, join, status checks |
 | `heimdall bootstrap k3s` | Official get.k3s.io install, optional verify |
-| `heimdall update` | Replace running binary from GitLab Generic Package |
+| `heimdall update` | Replace running binary from GitHub Releases |
 | `heimdall bootstrap flux` | Flux CLI install (optional), SSH `flux bootstrap git` or reconcile existing install |
 | `heimdall harden ssh` | Placeholder (not implemented) |
 
@@ -19,16 +19,16 @@ Full flags, safety behavior, limits: **[SPECS.md](SPECS.md)**.
 ## Install (Linux x86_64)
 
 ```bash
-curl -fsSL "https://gitlab.com/futharkd/heimdall/-/raw/main/scripts/install.sh" | sh
+curl -fsSL "https://raw.githubusercontent.com/futharkd/heimdall/main/scripts/install.sh" | sh
 ```
 
 Specific release (replace `<TAG>`):
 
 ```bash
-curl -fsSL "https://gitlab.com/futharkd/heimdall/-/raw/main/scripts/install.sh" | env HEIMDALL_VERSION="<TAG>" sh
+curl -fsSL "https://raw.githubusercontent.com/futharkd/heimdall/main/scripts/install.sh" | env HEIMDALL_VERSION="<TAG>" sh
 ```
 
-For private GitLab packages or rate limits, set **`GITLAB_TOKEN`** or **`PRIVATE_TOKEN`** before `curl` (same vars as `heimdall update`).
+For private releases or rate limits, set **`GITHUB_TOKEN`** before `curl` (same var as `heimdall update`).
 
 ## Quick examples
 

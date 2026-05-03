@@ -14,11 +14,11 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --all-features
 ```
 
-See [`.gitlab-ci.yml`](.gitlab-ci.yml) for the exact job definitions (fmt, clippy, test, release build).
+See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for the exact job definitions (fmt, clippy, test, release build).
 
 ## Releases and CI
 
-- **Build**: CI produces `heimdall-linux-amd64` + `.sha256` and uploads them to the **GitLab Generic Package Registry** (`latest` from `main`, or the tag name for tagged commits).
+- **Build**: CI produces `heimdall-linux-amd64` + `.sha256` and uploads them to **GitHub Releases** (on `v*` tags).
 - **Install script**: [`scripts/install.sh`](scripts/install.sh) — the README `curl … | sh` one-liners wrap this.
 
 ## Where code lives

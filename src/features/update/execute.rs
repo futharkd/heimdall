@@ -68,7 +68,7 @@ fn run_update(
     let curl_args = curl_download_args(
         &config.checksum_url,
         &tmp_checksum,
-        config.gitlab_token.as_deref(),
+        config.github_token.as_deref(),
     );
     let outcome = run_curl(runner, &curl_args, io_mode);
     match outcome {
@@ -142,7 +142,7 @@ fn run_update(
         let binary_args = curl_download_args(
             &config.binary_url,
             &tmp_binary,
-            config.gitlab_token.as_deref(),
+            config.github_token.as_deref(),
         );
         operations.push(OperationResult {
             id: "download_binary",
@@ -202,7 +202,7 @@ fn run_update(
     let binary_args = curl_download_args(
         &config.binary_url,
         &tmp_binary,
-        config.gitlab_token.as_deref(),
+        config.github_token.as_deref(),
     );
     match run_curl(runner, &binary_args, io_mode) {
         Ok(()) => {
@@ -323,7 +323,7 @@ fn curl_download_args(url: &str, dest: &Path, token: Option<&str>) -> Vec<String
     let mut args = vec!["-fSL".to_string()];
     if let Some(token) = token {
         args.push("-H".to_string());
-        args.push(format!("PRIVATE-TOKEN:{token}"));
+        args.push(format!("Authorization: token {token}"));
     }
     args.push("-o".to_string());
     args.push(dest.to_string_lossy().into_owned());
@@ -357,8 +357,8 @@ fn redact_curl_headers(args: &[String]) -> Vec<String> {
         if args[index] == "-H" && index + 1 < args.len() {
             out.push(args[index].clone());
             let value = &args[index + 1];
-            if value.strip_prefix("PRIVATE-TOKEN:").is_some() {
-                out.push("PRIVATE-TOKEN:<redacted>".to_string());
+            if value.starts_with("Authorization:") {
+                out.push("Authorization: <redacted>".to_string());
             } else {
                 out.push(value.clone());
             }
@@ -439,18 +439,18 @@ mod tests {
     use crate::runner::{CommandRunner, IoMode};
 
     #[test]
-    fn redact_curl_headers_masks_private_token() {
+    fn redact_curl_headers_masks_authorization() {
         let args = vec![
             "-fSL".to_string(),
             "-H".to_string(),
-            "PRIVATE-TOKEN:supersecret".to_string(),
+            "Authorization: token supersecret".to_string(),
             "-o".to_string(),
             "/tmp/x".to_string(),
             "https://example.com".to_string(),
         ];
         let redacted = redact_curl_headers(&args);
         let joined = redacted.join(" ");
-        assert!(joined.contains("PRIVATE-TOKEN:<redacted>"));
+        assert!(joined.contains("Authorization: <redacted>"));
         assert!(!joined.contains("supersecret"));
     }
 
@@ -459,7 +459,7 @@ mod tests {
         let args = vec![
             "-fSL".to_string(),
             "-H".to_string(),
-            "PRIVATE-TOKEN:abc".to_string(),
+            "Authorization: token abc".to_string(),
             "-o".to_string(),
             "/tmp/x".to_string(),
             "https://example.com".to_string(),
@@ -544,9 +544,9 @@ mod tests {
             output: OutputFormat::Human,
             exe_path: exe,
             package_version: "latest".to_string(),
-            binary_url: "https://gitlab.com/api/v4/projects/futharkd%2Fheimdall/packages/generic/heimdall/latest/heimdall-linux-amd64".to_string(),
-            checksum_url: "https://gitlab.com/api/v4/projects/futharkd%2Fheimdall/packages/generic/heimdall/latest/heimdall-linux-amd64.sha256".to_string(),
-            gitlab_token: Some("secret-token".to_string()),
+            binary_url: "https://github.com/futharkd/heimdall/releases/latest/download/heimdall-linux-amd64".to_string(),
+            checksum_url: "https://github.com/futharkd/heimdall/releases/latest/download/heimdall-linux-amd64.sha256".to_string(),
+            github_token: Some("secret-token".to_string()),
         }
     }
 

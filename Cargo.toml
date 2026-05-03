@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.94"
 license = "MIT"
 description = "Modular CLI for bootstrap, harden, and verify workflows."
-repository = "https://gitlab.com/futharkd/heimdall"
+repository = "https://github.com/futharkd/heimdall"
 
 [[bin]]
 name = "heimdall"

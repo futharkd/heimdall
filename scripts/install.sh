@@ -1,19 +1,17 @@
 #!/bin/sh
-# Install heimdall-linux-amd64 from the GitLab Generic Package registry.
+# Install heimdall-linux-amd64 from GitHub Releases.
 #
 # Environment (optional):
 #   HEIMDALL_VERSION   Package channel (default: latest). Example: v0.1.0
 #   HEIMDALL_INSTALL_DIR  Directory for the binary (default: /usr/local/bin as root, else ~/.local/bin)
-#   GITLAB_TOKEN, PRIVATE_TOKEN  Sent as GitLab PRIVATE-TOKEN for private projects
+#   GITHUB_TOKEN  Optional token for authentication (redacted in output).
 #
 # Usage:
-#   curl -fsSL "https://gitlab.com/futharkd/heimdall/-/raw/main/scripts/install.sh" | sh
+#   curl -fsSL "https://raw.githubusercontent.com/futharkd/heimdall/main/scripts/install.sh" | sh
 
 set -eu
 
-readonly project_encoded='futharkd%2Fheimdall'
-readonly api_base='https://gitlab.com/api/v4/projects'
-readonly pkg='heimdall'
+readonly github_repo='futharkd/heimdall'
 readonly artifact='heimdall-linux-amd64'
 
 die() {
@@ -50,8 +48,13 @@ case $dest_dir in
 	;;
 esac
 
-bin_url="${api_base}/${project_encoded}/packages/generic/${pkg}/${version}/${artifact}"
-sha_url="${api_base}/${project_encoded}/packages/generic/${pkg}/${version}/${artifact}.sha256"
+if [ "$version" = "latest" ]; then
+	bin_url="https://github.com/${github_repo}/releases/latest/download/${artifact}"
+	sha_url="https://github.com/${github_repo}/releases/latest/download/${artifact}.sha256"
+else
+	bin_url="https://github.com/${github_repo}/releases/download/${version}/${artifact}"
+	sha_url="https://github.com/${github_repo}/releases/download/${version}/${artifact}.sha256"
+fi
 
 tmpdir=
 cleanup() {
@@ -68,10 +71,8 @@ tmp_bin="${tmpdir}/${artifact}"
 curl_download() {
 	url=$1
 	out=$2
-	if [ -n "${GITLAB_TOKEN:-}" ]; then
-		curl -fSL -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" -o "$out" "$url"
-	elif [ -n "${PRIVATE_TOKEN:-}" ]; then
-		curl -fSL -H "PRIVATE-TOKEN: ${PRIVATE_TOKEN}" -o "$out" "$url"
+	if [ -n "${GITHUB_TOKEN:-}" ]; then
+		curl -fSL -H "Authorization: token ${GITHUB_TOKEN}" -o "$out" "$url"
 	else
 		curl -fSL -o "$out" "$url"
 	fi

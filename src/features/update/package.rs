@@ -1,78 +1,38 @@
 use anyhow::{Context, Result, bail};
 
-const DEFAULT_PACKAGE_NAME: &str = "heimdall";
 const BINARY_NAME: &str = "heimdall-linux-amd64";
 
-/// Returns `(api_origin, encoded_project_path)` for GitLab Generic Package download URLs.
-pub fn parse_gitlab_repository(repository: &str) -> Result<(String, String)> {
+/// Returns `(owner, repo)` from a GitHub repository URL.
+pub fn parse_github_repository(repository: &str) -> Result<(String, String)> {
     let trimmed = repository.trim().trim_end_matches('/');
     let rest = trimmed
         .strip_prefix("https://")
         .or_else(|| trimmed.strip_prefix("http://"))
         .with_context(|| format!("repository URL must be https:// or http://: {repository}"))?;
 
-    let (host, path) = rest
+    let (_host, path) = rest
         .split_once('/')
         .with_context(|| format!("repository URL missing project path: {repository}"))?;
 
-    if host.is_empty() || path.is_empty() {
-        bail!("invalid repository URL: {repository}");
+    let path = path.trim_end_matches(".git");
+    let (owner, repo) = path
+        .split_once('/')
+        .with_context(|| format!("repository URL missing repo name: {repository}"))?;
+
+    Ok((owner.to_string(), repo.to_string()))
+}
+
+pub fn release_artifact_url(owner: &str, repo: &str, version: &str, artifact: &str) -> String {
+    if version == "latest" {
+        format!("https://github.com/{owner}/{repo}/releases/latest/download/{artifact}")
+    } else {
+        format!("https://github.com/{owner}/{repo}/releases/download/{version}/{artifact}")
     }
-
-    let project_path = path.trim_end_matches(".git");
-    let encoded = url_encode_project_path(project_path);
-
-    Ok((format!("https://{host}"), encoded))
 }
 
-fn url_encode_project_path(project_path: &str) -> String {
-    project_path
-        .chars()
-        .map(|ch| match ch {
-            '/' => "%2F".to_string(),
-            ch if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') => ch.to_string(),
-            ch => {
-                let mut encoded = String::new();
-                for byte in ch.to_string().as_bytes() {
-                    encoded.push_str(&format!("%{byte:02X}"));
-                }
-                encoded
-            }
-        })
-        .collect()
-}
-
-pub fn generic_artifact_url(
-    api_origin: &str,
-    encoded_project: &str,
-    package_name: &str,
-    package_version: &str,
-    artifact: &str,
-) -> String {
-    format!(
-        "{api_origin}/api/v4/projects/{encoded_project}/packages/generic/{package_name}/{package_version}/{artifact}"
-    )
-}
-
-pub fn binary_and_checksum_urls(
-    api_origin: &str,
-    encoded_project: &str,
-    package_version: &str,
-) -> (String, String) {
-    let binary = generic_artifact_url(
-        api_origin,
-        encoded_project,
-        DEFAULT_PACKAGE_NAME,
-        package_version,
-        BINARY_NAME,
-    );
-    let checksum = generic_artifact_url(
-        api_origin,
-        encoded_project,
-        DEFAULT_PACKAGE_NAME,
-        package_version,
-        &format!("{BINARY_NAME}.sha256"),
-    );
+pub fn binary_and_checksum_urls(owner: &str, repo: &str, version: &str) -> (String, String) {
+    let binary = release_artifact_url(owner, repo, version, BINARY_NAME);
+    let checksum = release_artifact_url(owner, repo, version, &format!("{BINARY_NAME}.sha256"));
     (binary, checksum)
 }
 
@@ -94,56 +54,45 @@ pub fn validate_package_version(version: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        binary_and_checksum_urls, generic_artifact_url, parse_gitlab_repository,
+        binary_and_checksum_urls, parse_github_repository,
         validate_package_version,
     };
 
     #[test]
     fn parses_default_repository() {
-        let (origin, encoded) =
-            parse_gitlab_repository("https://gitlab.com/futharkd/heimdall").expect("parse");
-        assert_eq!(origin, "https://gitlab.com");
-        assert_eq!(encoded, "futharkd%2Fheimdall");
+        let (owner, repo) =
+            parse_github_repository("https://github.com/futharkd/heimdall").expect("parse");
+        assert_eq!(owner, "futharkd");
+        assert_eq!(repo, "heimdall");
     }
 
     #[test]
     fn strips_git_suffix() {
-        let (_, encoded) =
-            parse_gitlab_repository("https://gitlab.com/futharkd/heimdall.git").expect("parse");
-        assert_eq!(encoded, "futharkd%2Fheimdall");
+        let (owner, repo) =
+            parse_github_repository("https://github.com/futharkd/heimdall.git").expect("parse");
+        assert_eq!(owner, "futharkd");
+        assert_eq!(repo, "heimdall");
     }
 
     #[test]
     fn builds_latest_urls() {
         let (bin, sha) =
-            binary_and_checksum_urls("https://gitlab.com", "futharkd%2Fheimdall", "latest");
+            binary_and_checksum_urls("futharkd", "heimdall", "latest");
         assert_eq!(
             bin,
-            "https://gitlab.com/api/v4/projects/futharkd%2Fheimdall/packages/generic/heimdall/latest/heimdall-linux-amd64"
+            "https://github.com/futharkd/heimdall/releases/latest/download/heimdall-linux-amd64"
         );
         assert_eq!(
             sha,
-            "https://gitlab.com/api/v4/projects/futharkd%2Fheimdall/packages/generic/heimdall/latest/heimdall-linux-amd64.sha256"
+            "https://github.com/futharkd/heimdall/releases/latest/download/heimdall-linux-amd64.sha256"
         );
     }
 
     #[test]
     fn builds_tagged_urls() {
         let (bin, _) =
-            binary_and_checksum_urls("https://gitlab.com", "futharkd%2Fheimdall", "v0.1.0");
-        assert!(bin.contains("/heimdall/v0.1.0/heimdall-linux-amd64"));
-    }
-
-    #[test]
-    fn generic_url_encodes_version_segment_via_caller() {
-        let url = generic_artifact_url(
-            "https://example.com",
-            "group%2Fproj",
-            "heimdall",
-            "latest",
-            "heimdall-linux-amd64",
-        );
-        assert!(url.contains("/packages/generic/heimdall/latest/"));
+            binary_and_checksum_urls("futharkd", "heimdall", "v0.1.0");
+        assert!(bin.contains("/releases/download/v0.1.0/heimdall-linux-amd64"));
     }
 
     #[test]

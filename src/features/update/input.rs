@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 
 use crate::cli::{OutputFormat, UpdateCommand};
 
-use super::package::{binary_and_checksum_urls, parse_gitlab_repository, validate_package_version};
+use super::package::{binary_and_checksum_urls, parse_github_repository, validate_package_version};
 
 #[derive(Debug, Clone)]
 pub struct UpdateConfig {
@@ -16,7 +16,7 @@ pub struct UpdateConfig {
     pub package_version: String,
     pub binary_url: String,
     pub checksum_url: String,
-    pub gitlab_token: Option<String>,
+    pub github_token: Option<String>,
 }
 
 pub fn resolve_inputs(opts: UpdateCommand) -> Result<UpdateConfig> {
@@ -26,25 +26,20 @@ pub fn resolve_inputs(opts: UpdateCommand) -> Result<UpdateConfig> {
     }
 
     let repository = env!("CARGO_PKG_REPOSITORY");
-    let (api_origin, encoded_project) = parse_gitlab_repository(repository)
+    let (owner, repo) = parse_github_repository(repository)
         .with_context(|| format!("invalid CARGO_PKG_REPOSITORY: {repository}"))?;
 
     let package_version = opts.tag.clone().unwrap_or_else(|| "latest".to_string());
     validate_package_version(&package_version)?;
 
     let (binary_url, checksum_url) =
-        binary_and_checksum_urls(&api_origin, &encoded_project, &package_version);
+        binary_and_checksum_urls(&owner, &repo, &package_version);
 
     let exe_path = std::env::current_exe().context("resolve current executable path")?;
 
-    let gitlab_token = std::env::var("GITLAB_TOKEN")
+    let github_token = std::env::var("GITHUB_TOKEN")
         .ok()
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| {
-            std::env::var("PRIVATE_TOKEN")
-                .ok()
-                .filter(|value| !value.trim().is_empty())
-        });
+        .filter(|value| !value.trim().is_empty());
 
     Ok(UpdateConfig {
         dry_run: opts.dry_run,
@@ -55,6 +50,6 @@ pub fn resolve_inputs(opts: UpdateCommand) -> Result<UpdateConfig> {
         package_version,
         binary_url,
         checksum_url,
-        gitlab_token,
+        github_token,
     })
 }

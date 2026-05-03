@@ -53,10 +53,7 @@ pub fn validate_package_version(version: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        binary_and_checksum_urls, parse_github_repository,
-        validate_package_version,
-    };
+    use super::{binary_and_checksum_urls, parse_github_repository, validate_package_version};
 
     #[test]
     fn parses_default_repository() {
@@ -76,8 +73,7 @@ mod tests {
 
     #[test]
     fn builds_latest_urls() {
-        let (bin, sha) =
-            binary_and_checksum_urls("futharkd", "heimdall", "latest");
+        let (bin, sha) = binary_and_checksum_urls("futharkd", "heimdall", "latest");
         assert_eq!(
             bin,
             "https://github.com/futharkd/heimdall/releases/latest/download/heimdall-linux-amd64"
@@ -90,8 +86,7 @@ mod tests {
 
     #[test]
     fn builds_tagged_urls() {
-        let (bin, _) =
-            binary_and_checksum_urls("futharkd", "heimdall", "v0.1.0");
+        let (bin, _) = binary_and_checksum_urls("futharkd", "heimdall", "v0.1.0");
         assert!(bin.contains("/releases/download/v0.1.0/heimdall-linux-amd64"));
     }
 

@@ -32,8 +32,7 @@ pub fn resolve_inputs(opts: UpdateCommand) -> Result<UpdateConfig> {
     let package_version = opts.tag.clone().unwrap_or_else(|| "latest".to_string());
     validate_package_version(&package_version)?;
 
-    let (binary_url, checksum_url) =
-        binary_and_checksum_urls(&owner, &repo, &package_version);
+    let (binary_url, checksum_url) = binary_and_checksum_urls(&owner, &repo, &package_version);
 
     let exe_path = std::env::current_exe().context("resolve current executable path")?;
 

@@ -105,10 +105,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
             id: "allow_http".to_string(),
             description: "Allow HTTP (port 80)".to_string(),
             command: "firewall-cmd".to_string(),
-            args: vec![
-                "--permanent".to_string(),
-                "--add-service=http".to_string(),
-            ],
+            args: vec!["--permanent".to_string(), "--add-service=http".to_string()],
             env: vec![],
             failure_is_warning: false,
         });
@@ -119,10 +116,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
             id: "allow_https".to_string(),
             description: "Allow HTTPS (port 443)".to_string(),
             command: "firewall-cmd".to_string(),
-            args: vec![
-                "--permanent".to_string(),
-                "--add-service=https".to_string(),
-            ],
+            args: vec!["--permanent".to_string(), "--add-service=https".to_string()],
             env: vec![],
             failure_is_warning: false,
         });

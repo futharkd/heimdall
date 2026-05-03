@@ -28,7 +28,9 @@ pub fn resolve_inputs(opts: HardenSshCommand) -> Result<ResolvedSshInputs> {
 
     // Check confirmation for risky operation
     if !opts.yes && !prompt_confirmation()? {
-        return Err(anyhow::anyhow!("SSH hardening requires explicit confirmation"));
+        return Err(anyhow::anyhow!(
+            "SSH hardening requires explicit confirmation"
+        ));
     }
 
     let config = HardenSshConfig {

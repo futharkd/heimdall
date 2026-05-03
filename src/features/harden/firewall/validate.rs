@@ -1,5 +1,5 @@
 use super::input::CustomFirewallRule;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 pub fn validate_custom_rule(rule: &CustomFirewallRule) -> Result<()> {
     // Port is u16, so it's always in range 0-65535. No validation needed.

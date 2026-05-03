@@ -23,7 +23,10 @@ pub fn execute_plan(
             match runner.run_with_env_io(
                 &op.command,
                 &op.args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-                &op.env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect::<Vec<_>>(),
+                &op.env
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v.as_str()))
+                    .collect::<Vec<_>>(),
                 io_mode,
             ) {
                 Ok(output) => {

@@ -15,8 +15,6 @@ pub struct HardenFirewallReport {
 
 impl HardenFirewallReport {
     pub fn has_failures(&self) -> bool {
-        self.operations
-            .iter()
-            .any(|op| op.status == "failed")
+        self.operations.iter().any(|op| op.status == "failed")
     }
 }

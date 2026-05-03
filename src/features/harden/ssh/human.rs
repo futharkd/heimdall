@@ -1,5 +1,5 @@
 use super::report::HardenSshReport;
-use crate::output::{Style, StatusTone};
+use crate::output::{StatusTone, Style};
 
 pub fn format_report_human(report: &HardenSshReport, style: &Style) -> String {
     let mut lines = Vec::new();

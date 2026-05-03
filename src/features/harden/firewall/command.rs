@@ -5,7 +5,7 @@ use super::plan::build_plan;
 use crate::cli::HardenFirewallCommand;
 use crate::config;
 use crate::output::Style;
-use crate::runner::{LocalRunner, IoMode};
+use crate::runner::{IoMode, LocalRunner};
 use crate::runtime::ExitStatus;
 use anyhow::Result;
 use serde_json::json;
@@ -19,11 +19,12 @@ pub fn run(opts: HardenFirewallCommand, global: &crate::cli::GlobalOpts) -> Resu
     let plan = build_plan(&resolved.config)?;
 
     // Determine IO mode
-    let io_mode = if matches!(resolved.output, crate::cli::OutputFormat::Json) || resolved.config.dry_run {
-        IoMode::Buffered
-    } else {
-        IoMode::LiveTee
-    };
+    let io_mode =
+        if matches!(resolved.output, crate::cli::OutputFormat::Json) || resolved.config.dry_run {
+            IoMode::Buffered
+        } else {
+            IoMode::LiveTee
+        };
 
     // Execute plan
     let report = execute_plan(&runner, &resolved.config, &plan, io_mode);
@@ -81,12 +82,15 @@ pub fn run(opts: HardenFirewallCommand, global: &crate::cli::GlobalOpts) -> Resu
         if resolved.config.allow_https {
             firewall.presets.push("https".to_string());
         }
-        firewall.custom_rules = resolved.config.custom_rules.iter().map(|r| {
-            crate::config::CustomFirewallRule {
+        firewall.custom_rules = resolved
+            .config
+            .custom_rules
+            .iter()
+            .map(|r| crate::config::CustomFirewallRule {
                 port: r.port,
                 protocol: r.protocol.clone(),
-            }
-        }).collect();
+            })
+            .collect();
 
         config::save(&config, &config_path)?;
     }

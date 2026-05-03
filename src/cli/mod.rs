@@ -27,6 +27,16 @@ pub enum NetbirdInstallMethod {
     Package,
 }
 
+/// Komodo deployment mode.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum KomodoMode {
+    /// Full stack: MongoDB + Komodo Core + Komodo Periphery.
+    #[default]
+    Core,
+    /// Periphery only: connect to existing remote Core.
+    Periphery,
+}
+
 #[derive(Debug, Parser)]
 pub struct GlobalOpts {
     /// When to emit ANSI colors in human reports (`NO_COLOR` in the environment always disables).
@@ -67,6 +77,8 @@ pub enum BootstrapAction {
     Netbird(BootstrapNetbirdCommand),
     /// Create or update admin user with SSH public key authentication.
     User(BootstrapUserCommand),
+    /// Initialize and start Komodo (core or periphery) via Docker Compose.
+    Komodo(BootstrapKomodoCommand),
 }
 
 #[derive(Debug, clap::Args)]
@@ -89,10 +101,12 @@ pub struct ResetCommand {
 
 #[derive(Debug, clap::Args)]
 #[command(about = "Destructively reset k3s cluster to initial state.")]
-#[command(long_about = "Drain all nodes, purge all data, and uninstall k3s. DESTRUCTIVE OPERATION. \
+#[command(
+    long_about = "Drain all nodes, purge all data, and uninstall k3s. DESTRUCTIVE OPERATION. \
 Requires explicit confirmation via --confirm=reset-cluster (or TTY prompt). \
 Supports --dry-run (print planned commands without execution), --yes (skip prompt, still requires --confirm). \
-Outputs structured report (human or --output json).")]
+Outputs structured report (human or --output json)."
+)]
 pub struct ResetClusterCommand {
     /// Skip destructive execution and print the planned reset commands only.
     #[arg(long)]
@@ -108,13 +122,17 @@ pub struct ResetClusterCommand {
 }
 
 #[derive(Debug, clap::Args)]
-#[command(about = "Install Flux GitOps framework and bootstrap a Git-based declarative configuration repo.")]
-#[command(long_about = "Install Flux and run `flux bootstrap git` against a Git repository (SSH-based deploy key or BYOK). \
+#[command(
+    about = "Install Flux GitOps framework and bootstrap a Git-based declarative configuration repo."
+)]
+#[command(
+    long_about = "Install Flux and run `flux bootstrap git` against a Git repository (SSH-based deploy key or BYOK). \
 Idempotent: if the Flux namespace exists, reconciles existing install instead. \
 Requires SSH Git URL (SCP-style git@host:path normalized to ssh://). \
 Deploy keys need write access (Flux pushes initial manifests). \
 Interactive key generation by default (TTY + ssh-keygen); BYOK via --private-key-file. \
-Optional Flux CLI auto-install via https://fluxcd.io/install.sh (skip with --force).")]
+Optional Flux CLI auto-install via https://fluxcd.io/install.sh (skip with --force)."
+)]
 pub struct BootstrapFluxCommand {
     /// SSH Git URL (e.g. `ssh://git@gitlab.com/group/repo.git`). Omit to use `FLUX_GIT_URL` or an interactive prompt when stdin is a TTY.
     #[arg(long)]
@@ -156,12 +174,14 @@ pub struct BootstrapFluxCommand {
 
 #[derive(Debug, clap::Args)]
 #[command(about = "Install k3s lightweight Kubernetes distribution.")]
-#[command(long_about = "Install k3s (server or agent) via official get.k3s.io installer. \
+#[command(
+    long_about = "Install k3s (server or agent) via official get.k3s.io installer. \
 Idempotent: probes `command -v k3s` and skips download/install if found (use --force to override). \
 Agent role requires --server-url / K3S_URL (https://<host>:<port>) and --token / K3S_TOKEN. \
 Optional: pin version (--version / INSTALL_K3S_VERSION), extra k3s args (--install-exec / INSTALL_K3S_EXEC). \
 Verification: runs `sudo k3s kubectl get nodes -o name` and requires at least one node. \
-Supports --dry-run, --yes, --force, --output json.")]
+Supports --dry-run, --yes, --force, --output json."
+)]
 pub struct BootstrapK3sCommand {
     /// Install a k3s server (default) or join this host as an agent using `K3S_URL` / `K3S_TOKEN`.
     #[arg(long, value_enum, default_value_t = K3sRole::Server)]
@@ -197,11 +217,13 @@ pub struct BootstrapK3sCommand {
 
 #[derive(Debug, clap::Args)]
 #[command(about = "Install NetBird VPN overlay network client.")]
-#[command(long_about = "Install NetBird via official https://pkgs.netbird.io/install.sh, optionally join a management service, and verify connectivity. \
+#[command(
+    long_about = "Install NetBird via official https://pkgs.netbird.io/install.sh, optionally join a management service, and verify connectivity. \
 Install method: --install-method binary (default, GitHub releases) or package (apt/dnf/yum, set DEBIAN_FRONTEND=noninteractive for quiet apt). \
 Join: uses `netbird up` with optional --setup-key / NETBIRD_SETUP_KEY and --management-url / NETBIRD_MANAGEMENT_URL. \
 Verify: runs `netbird status`, requires 'Management: Connected' and 'Signal: Connected' in output. \
-Optional: --release / NETBIRD_RELEASE for version pin. Supports --dry-run, --yes, --output json.")]
+Optional: --release / NETBIRD_RELEASE for version pin. Supports --dry-run, --yes, --output json."
+)]
 pub struct BootstrapNetbirdCommand {
     /// Skip NetBird UI packages (maps to SKIP_UI_APP for the official install script).
     #[arg(long)]
@@ -228,13 +250,15 @@ pub struct BootstrapNetbirdCommand {
 
 #[derive(Debug, clap::Args)]
 #[command(about = "Create or update an admin user with SSH public key authentication.")]
-#[command(long_about = "Create or ensure user exists with SSH keys in authorized_keys (idempotent). \
+#[command(
+    long_about = "Create or ensure user exists with SSH keys in authorized_keys (idempotent). \
 Resolve username from --user or interactive prompt. Resolve SSH keys from --key / --key-file or interactive prompt. \
 Validation: username format, SSH key algorithms (ssh-ed25519, ssh-rsa, ecdsa-sha2-nistp256). \
 Operations: group creation, user creation, .ssh dir setup, authorized_keys management (atomic promotion), \
 optional hardening (--disable-root-login, --disable-password-auth, requires --yes or confirmation). \
 Idempotent: uses grep -qxF to skip duplicate keys. Stop-on-failure behavior. \
-Supports --dry-run, --yes, --output json.")]
+Supports --dry-run, --yes, --output json."
+)]
 pub struct BootstrapUserCommand {
     #[arg(long)]
     pub user: Option<String>,
@@ -256,6 +280,100 @@ pub struct BootstrapUserCommand {
     pub output: OutputFormat,
 }
 
+#[derive(Debug, Clone, clap::Args)]
+#[command(about = "Initialize and start a Komodo instance with Docker Compose.")]
+#[command(
+    long_about = "Deploy Komodo (core or periphery-only) via Docker Compose. \
+Core mode (default): MongoDB + Komodo Core + Komodo Periphery full stack. \
+Periphery mode: Periphery only, connects to remote Core instance. \
+Generates compose.yaml and compose.env in /etc/heimdall/komodo/ (or --dir). \
+Secrets auto-generated (admin password, database password, webhook/JWT secrets). \
+Runs `docker compose up -d` by default (skip with --no-up). \
+Supports --dry-run, --yes, --force, --output json."
+)]
+pub struct BootstrapKomodoCommand {
+    /// Deployment mode: core (full stack) or periphery (remote core).
+    #[arg(long, value_enum, default_value_t = KomodoMode::Core)]
+    pub mode: KomodoMode,
+
+    /// Output directory for compose.yaml + compose.env (default: /etc/heimdall/komodo).
+    #[arg(long)]
+    pub dir: Option<String>,
+
+    /// Komodo image tag (default: 2).
+    #[arg(long)]
+    pub image_tag: Option<String>,
+
+    /// Overwrite existing compose/env files.
+    #[arg(long)]
+    pub force: bool,
+
+    /// Komodo Core host URL (e.g. https://komodo.example.com). Core mode only; prompted if omitted and TTY.
+    #[arg(long)]
+    pub host: Option<String>,
+
+    /// Komodo title displayed in browser (default: Komodo). Core mode only.
+    #[arg(long)]
+    pub title: Option<String>,
+
+    /// Host port for Komodo Core UI (default: 9120). Core mode only.
+    #[arg(long)]
+    pub port: Option<u16>,
+
+    /// Admin username (default: admin). Prompted if omitted and TTY.
+    #[arg(long)]
+    pub admin_username: Option<String>,
+
+    /// Admin password (auto-generated if omitted). Prompted if omitted and TTY.
+    #[arg(long)]
+    pub admin_password: Option<String>,
+
+    /// Database username (default: admin). Core mode only.
+    #[arg(long)]
+    pub db_username: Option<String>,
+
+    /// Database password (auto-generated if omitted). Prompted if omitted and TTY. Core mode only.
+    #[arg(long)]
+    pub db_password: Option<String>,
+
+    /// Path for database backups (default: /etc/komodo/backups). Core mode only.
+    #[arg(long)]
+    pub backups_path: Option<String>,
+
+    /// Server name for first server registration (default: Local). Core mode only.
+    #[arg(long)]
+    pub first_server_name: Option<String>,
+
+    /// Core WebSocket address (e.g. ws://core:9120). Periphery mode only; required for periphery.
+    #[arg(long)]
+    pub core_address: Option<String>,
+
+    /// Server name Periphery uses when connecting (default: same as first-server-name). Periphery mode only.
+    #[arg(long)]
+    pub connect_as: Option<String>,
+
+    /// Path to Core's public key file (write to keys/core.pub). Periphery mode only; optional.
+    #[arg(long)]
+    pub core_public_key_file: Option<String>,
+
+    /// Periphery root directory (default: /etc/komodo). Periphery mode only.
+    #[arg(long)]
+    pub periphery_root: Option<String>,
+
+    /// Write compose files but do not run `docker compose up -d`.
+    #[arg(long)]
+    pub no_up: bool,
+
+    #[arg(long)]
+    pub dry_run: bool,
+
+    #[arg(long)]
+    pub yes: bool,
+
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum HardenAction {
     /// Harden firewall with toggle rules (SSH, established, HTTP, HTTPS) + custom ports.
@@ -266,12 +384,14 @@ pub enum HardenAction {
 
 #[derive(Debug, clap::Args)]
 #[command(about = "Harden firewall with firewalld (Fedora).")]
-#[command(long_about = "Configure firewalld with toggleable presets (SSH, established, HTTP, HTTPS) + custom port rules. \
+#[command(
+    long_about = "Configure firewalld with toggleable presets (SSH, established, HTTP, HTTPS) + custom port rules. \
 Default: allow SSH (port from sshd_config) + established connections. \
 SSH port is auto-detected from /etc/ssh/sshd_config or .heimdall/config.yaml override. \
 Interactive mode: if no toggle flags given and stdin is a TTY, prompts for each preset. \
 Sets default zone to drop (deny all inbound) unless already applied. \
-Requires firewalld installed. Idempotent. Supports --dry-run, --yes, --output json.")]
+Requires firewalld installed. Idempotent. Supports --dry-run, --yes, --output json."
+)]
 pub struct HardenFirewallCommand {
     /// Allow SSH access (default: true). Auto-detects port from sshd_config.
     #[arg(long, default_value = "true")]
@@ -306,12 +426,14 @@ pub struct HardenFirewallCommand {
 
 #[derive(Debug, clap::Args)]
 #[command(about = "Harden SSH server configuration.")]
-#[command(long_about = "Change SSH port (with firewall safety checks) and optionally disable root login / password auth. \
+#[command(
+    long_about = "Change SSH port (with firewall safety checks) and optionally disable root login / password auth. \
 Port change with full safety: backs up sshd_config, probes firewall, auto-opens port if needed (or errors without --yes). \
 Runs sshd -t validation before reload. Idempotent: skips port change if already set. \
 Optional toggles: --disable-root-login, --disable-password-auth (prompted if not specified and stdin is TTY). \
 Requires explicit confirmation for risky operations unless --yes. \
-Supports --dry-run, --output json.")]
+Supports --dry-run, --output json."
+)]
 pub struct HardenSshCommand {
     /// New SSH port to set. Prompted if not given (requires TTY).
     #[arg(long)]
@@ -356,8 +478,10 @@ pub struct VerifyCommand {
 
 #[derive(Debug, clap::Args)]
 #[command(about = "Run environment diagnostics and report infrastructure health.")]
-#[command(long_about = "Non-mutating checks: cargo availability, current working directory accessibility, git repository presence. \
-Exit: 0 if no failures, 1 if any check fails. Supports --output json for structured results.")]
+#[command(
+    long_about = "Non-mutating checks: cargo availability, current working directory accessibility, git repository presence. \
+Exit: 0 if no failures, 1 if any check fails. Supports --output json for structured results."
+)]
 pub struct VerifyDoctorCommand {
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     pub output: OutputFormat,
@@ -365,10 +489,12 @@ pub struct VerifyDoctorCommand {
 
 #[derive(Debug, clap::Args)]
 #[command(about = "Replace the running binary with a newer version from the package registry.")]
-#[command(long_about = "Fetch remote .sha256 from GitLab Generic Package Registry (heimdall/{latest|tag}/heimdall-linux-amd64.sha256). \
+#[command(
+    long_about = "Fetch remote .sha256 from GitLab Generic Package Registry (heimdall/{latest|tag}/heimdall-linux-amd64.sha256). \
 Compare to SHA256 of the running binary; skip download if match (unless --force). Requires curl on PATH and write access to binary directory. \
 Linux x86_64 only. Optional GITLAB_TOKEN / PRIVATE_TOKEN for authentication (redacted in output). \
-Supports --dry-run (resolve URLs + fetch checksum only), --yes (skip confirmation), --force (re-download), --tag (non-latest version), --output json.")]
+Supports --dry-run (resolve URLs + fetch checksum only), --yes (skip confirmation), --force (re-download), --tag (non-latest version), --output json."
+)]
 pub struct UpdateCommand {
     /// Print resolved URLs and digests; fetch remote `.sha256` only (no full binary download, no replace).
     #[arg(long)]

@@ -1,6 +1,6 @@
 use crate::cli::{HardenFirewallCommand, OutputFormat};
 use crate::config;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::io::{self, IsTerminal, Write};
 
 #[derive(Debug)]
@@ -59,7 +59,9 @@ pub fn resolve_inputs(opts: HardenFirewallCommand) -> Result<ResolvedFirewallInp
 
     // Check confirmation for risky operation (setting default zone to drop)
     if !opts.yes && !prompt_confirmation()? {
-        return Err(anyhow::anyhow!("Firewall hardening requires explicit confirmation"));
+        return Err(anyhow::anyhow!(
+            "Firewall hardening requires explicit confirmation"
+        ));
     }
 
     let config = HardenFirewallConfig {
@@ -136,9 +138,7 @@ fn prompt_presets() -> Result<(bool, bool, bool, bool)> {
 }
 
 fn prompt_confirmation() -> Result<bool> {
-    confirm(
-        "Setting default firewall zone to drop (deny all inbound). Continue? [yes/no]: ",
-    )
+    confirm("Setting default firewall zone to drop (deny all inbound). Continue? [yes/no]: ")
 }
 
 fn confirm(label: &str) -> Result<bool> {

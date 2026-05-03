@@ -5,7 +5,7 @@ use super::plan::build_plan;
 use crate::cli::HardenSshCommand;
 use crate::config;
 use crate::output::Style;
-use crate::runner::{LocalRunner, IoMode};
+use crate::runner::{IoMode, LocalRunner};
 use crate::runtime::ExitStatus;
 use anyhow::Result;
 use serde_json::json;
@@ -17,11 +17,12 @@ pub fn run(opts: HardenSshCommand, global: &crate::cli::GlobalOpts) -> Result<Ex
 
     let plan = build_plan(&resolved.config)?;
 
-    let io_mode = if matches!(resolved.output, crate::cli::OutputFormat::Json) || resolved.config.dry_run {
-        IoMode::Buffered
-    } else {
-        IoMode::LiveTee
-    };
+    let io_mode =
+        if matches!(resolved.output, crate::cli::OutputFormat::Json) || resolved.config.dry_run {
+            IoMode::Buffered
+        } else {
+            IoMode::LiveTee
+        };
 
     let report = execute_plan(&runner, &resolved.config, &plan, io_mode);
 

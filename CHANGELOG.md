@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/futharkd/heimdall/compare/v0.2.1...v0.2.2) (2026-05-03)
+
+
+### Bug Fixes
+
+* directly move release builds to release-please ([368a41f](https://github.com/futharkd/heimdall/commit/368a41f34befd6eb29748effe44906e74325f61b))
+
 ## [0.2.1](https://github.com/futharkd/heimdall/compare/v0.2.0...v0.2.1) (2026-05-03)
 
 

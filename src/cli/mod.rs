@@ -258,8 +258,82 @@ pub struct BootstrapUserCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum HardenAction {
-    /// Harden SSH server configuration (disable root login, password auth, etc.). [Not yet implemented.]
-    Ssh,
+    /// Harden firewall with toggle rules (SSH, established, HTTP, HTTPS) + custom ports.
+    Firewall(HardenFirewallCommand),
+    /// Harden SSH server (change port + optional toggles for root login, password auth).
+    Ssh(HardenSshCommand),
+}
+
+#[derive(Debug, clap::Args)]
+#[command(about = "Harden firewall with firewalld (Fedora).")]
+#[command(long_about = "Configure firewalld with toggleable presets (SSH, established, HTTP, HTTPS) + custom port rules. \
+Default: allow SSH (port from sshd_config) + established connections. \
+SSH port is auto-detected from /etc/ssh/sshd_config or .heimdall/config.yaml override. \
+Interactive mode: if no toggle flags given and stdin is a TTY, prompts for each preset. \
+Sets default zone to drop (deny all inbound) unless already applied. \
+Requires firewalld installed. Idempotent. Supports --dry-run, --yes, --output json.")]
+pub struct HardenFirewallCommand {
+    /// Allow SSH access (default: true). Auto-detects port from sshd_config.
+    #[arg(long, default_value = "true")]
+    pub allow_ssh: bool,
+
+    /// Allow established/related connections (default: true).
+    #[arg(long, default_value = "true")]
+    pub allow_established: bool,
+
+    /// Allow HTTP (port 80).
+    #[arg(long, default_value = "false")]
+    pub allow_http: bool,
+
+    /// Allow HTTPS (port 443).
+    #[arg(long, default_value = "false")]
+    pub allow_https: bool,
+
+    /// Custom firewall rule. Format: port=<N>,protocol=<tcp|udp|both>. Repeatable.
+    #[arg(long = "custom-rule")]
+    pub custom_rules: Vec<String>,
+
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Skip confirmation prompts.
+    #[arg(long)]
+    pub yes: bool,
+
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
+}
+
+#[derive(Debug, clap::Args)]
+#[command(about = "Harden SSH server configuration.")]
+#[command(long_about = "Change SSH port (with firewall safety checks) and optionally disable root login / password auth. \
+Port change with full safety: backs up sshd_config, probes firewall, auto-opens port if needed (or errors without --yes). \
+Runs sshd -t validation before reload. Idempotent: skips port change if already set. \
+Optional toggles: --disable-root-login, --disable-password-auth (prompted if not specified and stdin is TTY). \
+Requires explicit confirmation for risky operations unless --yes. \
+Supports --dry-run, --output json.")]
+pub struct HardenSshCommand {
+    /// New SSH port to set. Prompted if not given (requires TTY).
+    #[arg(long)]
+    pub port: Option<u16>,
+
+    /// Disable root login (PermitRootLogin no).
+    #[arg(long, default_value = "false")]
+    pub disable_root_login: bool,
+
+    /// Disable password authentication (PasswordAuthentication no).
+    #[arg(long, default_value = "false")]
+    pub disable_password_auth: bool,
+
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Skip confirmation prompts.
+    #[arg(long)]
+    pub yes: bool,
+
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
 }
 
 #[derive(Debug, clap::Args)]

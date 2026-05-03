@@ -1,11 +1,21 @@
-use std::io::{self, ErrorKind, IsTerminal, Write};
+use std::io::{self, ErrorKind, IsTerminal};
 use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Result, bail};
+use inquire::Text;
 
 use crate::cli::{BootstrapFluxCommand, OutputFormat};
 use crate::runner::{CommandRunner, IoMode};
+
+fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
+    r.map_err(|e| match e {
+        inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
+        inquire::InquireError::OperationCanceled
+        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        other => anyhow::anyhow!("{other}"),
+    })
+}
 
 #[derive(Debug, Clone)]
 pub struct BootstrapFluxConfig {
@@ -112,7 +122,11 @@ where
         );
     }
 
-    let entered = prompt("Git branch for Flux bootstrap [main]: ")?;
+    let entered = map_inquire(
+        Text::new("Git branch for Flux bootstrap:")
+            .with_default("main")
+            .prompt(),
+    )?;
     let trimmed = entered.trim();
     if trimmed.is_empty() {
         Ok("main".to_string())
@@ -134,14 +148,10 @@ fn resolve_git_url(opts: &BootstrapFluxCommand) -> Result<String> {
     if let Some(url) = git_url_from_opts_and_env(opts) {
         return super::validate::finalize_flux_git_url(&url);
     }
-    if !io::stdin().is_terminal() {
-        bail!(
-            "Git URL not set: pass --url, set FLUX_GIT_URL, or run from a terminal for an interactive prompt"
-        );
-    }
     loop {
-        let line = prompt(
-            "Git SSH clone URL (e.g. ssh://git@gitlab.com/group/repo.git or git@gitlab.com:group/repo.git): ",
+        let line = map_inquire(
+            Text::new("Git SSH clone URL (e.g. ssh://git@gitlab.com/group/repo.git or git@gitlab.com:group/repo.git):")
+                .prompt(),
         )?;
         let t = line.trim();
         if t.is_empty() {
@@ -159,13 +169,11 @@ fn resolve_cluster_path(opts: &BootstrapFluxCommand) -> Result<String> {
     if let Some(p) = cluster_path_from_opts_and_env(opts) {
         return Ok(p);
     }
-    if !io::stdin().is_terminal() {
-        bail!(
-            "Flux path in repo not set: pass --path, set FLUX_GIT_PATH, or run from a terminal for an interactive prompt"
-        );
-    }
     loop {
-        let line = prompt("Path inside the Git repo for Flux manifests (e.g. clusters/prod): ")?;
+        let line = map_inquire(
+            Text::new("Path inside the Git repo for Flux manifests (e.g. clusters/prod):")
+                .prompt(),
+        )?;
         let t = line.trim();
         if t.is_empty() {
             eprintln!("A non-empty path is required.");
@@ -281,18 +289,12 @@ pub fn kube_env(kubeconfig: &str) -> Vec<(String, String)> {
 }
 
 fn confirm_flux_bootstrap() -> Result<bool> {
-    let answer = prompt(
-        "This will install or configure Flux against your cluster and Git repo. Continue? type 'yes' to proceed: ",
-    )?;
-    Ok(answer == "yes")
-}
-
-fn prompt(label: &str) -> Result<String> {
-    print!("{label}");
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_string())
+    use inquire::Confirm;
+    map_inquire(
+        Confirm::new("Configure Flux against your cluster and Git repo. Continue?")
+            .with_default(false)
+            .prompt(),
+    )
 }
 
 /// Returns `true` if `kubectl get ns <namespace>` succeeds.
@@ -323,12 +325,11 @@ pub fn probe_flux_on_path(runner: &dyn CommandRunner) -> bool {
 
 pub fn wait_enter_after_deploy_key_prompt() -> Result<()> {
     println!();
-    print!(
-        "Press Enter after you saved the deploy key (with write access — bootstrap must push initial commits to the repo)… "
-    );
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
+    map_inquire(
+        Text::new("")
+            .with_help_message("Press Enter after you saved the deploy key (with write access — bootstrap must push initial commits to the repo)…")
+            .prompt(),
+    )?;
     Ok(())
 }
 

@@ -1,6 +1,15 @@
 use crate::cli::{HardenSshCommand, OutputFormat};
 use anyhow::Result;
-use std::io::{self, IsTerminal, Write};
+use inquire::{Confirm, CustomType};
+
+fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
+    r.map_err(|e| match e {
+        inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
+        inquire::InquireError::OperationCanceled
+        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        other => anyhow::anyhow!("{other}"),
+    })
+}
 
 #[derive(Debug)]
 pub struct HardenSshConfig {
@@ -18,13 +27,7 @@ pub struct ResolvedSshInputs {
 
 pub fn resolve_inputs(opts: HardenSshCommand) -> Result<ResolvedSshInputs> {
     let current_port = read_ssh_port()?;
-    let new_port = opts.port.or_else(|| {
-        if io::stdin().is_terminal() {
-            prompt_port().ok()
-        } else {
-            None
-        }
-    });
+    let new_port = opts.port.or_else(|| prompt_port().ok());
 
     // Check confirmation for risky operation
     if !opts.yes && !prompt_confirmation()? {
@@ -66,17 +69,17 @@ fn read_ssh_port() -> Result<u16> {
 }
 
 fn prompt_port() -> Result<u16> {
-    print!("Enter new SSH port: ");
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().parse::<u16>()?)
+    map_inquire(
+        CustomType::<u16>::new("Enter new SSH port:")
+            .with_error_message("Please enter a valid port number (1–65535)")
+            .prompt(),
+    )
 }
 
 fn prompt_confirmation() -> Result<bool> {
-    print!("This will change SSH configuration. Continue? [yes/no]: ");
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_lowercase() == "yes")
+    map_inquire(
+        Confirm::new("This will change SSH configuration. Continue?")
+            .with_default(false)
+            .prompt(),
+    )
 }

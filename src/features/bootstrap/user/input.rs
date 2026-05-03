@@ -1,8 +1,16 @@
-use std::io::{self, Write};
-
 use anyhow::{Context, Result, bail};
+use inquire::{Confirm, Text};
 
 use crate::cli::{BootstrapUserCommand, OutputFormat};
+
+fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
+    r.map_err(|e| match e {
+        inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
+        inquire::InquireError::OperationCanceled
+        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        other => anyhow::anyhow!("{other}"),
+    })
+}
 
 #[derive(Debug, Clone)]
 pub struct BootstrapUserConfig {
@@ -23,11 +31,14 @@ pub struct ResolvedInputs {
 pub fn resolve_inputs(opts: BootstrapUserCommand) -> Result<ResolvedInputs> {
     let user = match opts.user {
         Some(value) => value,
-        None => prompt("Enter admin username: ")?,
+        None => {
+            let s = map_inquire(Text::new("Enter admin username:").prompt())?;
+            if s.trim().is_empty() {
+                bail!("username cannot be empty");
+            }
+            s
+        }
     };
-    if user.trim().is_empty() {
-        bail!("username cannot be empty");
-    }
 
     let group = opts.group.unwrap_or_else(|| user.clone());
     let mut keys = opts.keys;
@@ -47,7 +58,11 @@ pub fn resolve_inputs(opts: BootstrapUserCommand) -> Result<ResolvedInputs> {
         println!("No SSH keys provided.");
         println!("Paste one or more allowed SSH public keys, then submit an empty line:");
         loop {
-            let line = prompt("> ")?;
+            let line = map_inquire(
+                Text::new(">")
+                    .with_help_message("leave empty to finish")
+                    .prompt(),
+            )?;
             if line.trim().is_empty() {
                 break;
             }
@@ -76,16 +91,10 @@ pub fn resolve_inputs(opts: BootstrapUserCommand) -> Result<ResolvedInputs> {
     })
 }
 
-fn prompt(label: &str) -> Result<String> {
-    print!("{label}");
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_string())
-}
-
 fn confirm_risky_changes() -> Result<bool> {
-    let answer =
-        prompt("Risky SSH authentication changes requested. Continue? type 'yes' to proceed: ")?;
-    Ok(answer == "yes")
+    map_inquire(
+        Confirm::new("Risky SSH authentication changes requested. Continue?")
+            .with_default(false)
+            .prompt(),
+    )
 }

@@ -1,10 +1,19 @@
-use std::io::{self, Write};
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
+use inquire::Confirm;
 
 use crate::cli::{BootstrapK3sCommand, K3sRole, OutputFormat};
 use crate::runner::{CommandRunner, IoMode};
+
+fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
+    r.map_err(|e| match e {
+        inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
+        inquire::InquireError::OperationCanceled
+        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        other => anyhow::anyhow!("{other}"),
+    })
+}
 
 #[derive(Debug, Clone)]
 pub struct BootstrapK3sConfig {
@@ -118,18 +127,11 @@ pub fn probe_k3s_on_path(runner: &dyn CommandRunner) -> bool {
 }
 
 fn confirm_install() -> Result<bool> {
-    let answer = prompt(
-        "This will install or update k3s using the official get.k3s.io install script. Continue? type 'yes' to proceed: ",
-    )?;
-    Ok(answer == "yes")
-}
-
-fn prompt(label: &str) -> Result<String> {
-    print!("{label}");
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_string())
+    map_inquire(
+        Confirm::new("This will install or update k3s using the official get.k3s.io install script. Continue?")
+            .with_default(false)
+            .prompt(),
+    )
 }
 
 #[cfg(test)]

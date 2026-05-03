@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use inquire::Confirm;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -12,6 +13,15 @@ use crate::runner::{CommandRunner, IoMode};
 use super::checksum::{hex_lower, parse_sha256sum_file, sha256_bytes, sha256_file};
 use super::input::UpdateConfig;
 use super::report::UpdateReport;
+
+fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
+    r.map_err(|e| match e {
+        inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
+        inquire::InquireError::OperationCanceled
+        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        other => anyhow::anyhow!("{other}"),
+    })
+}
 
 pub fn execute_update(
     runner: &dyn CommandRunner,
@@ -361,17 +371,11 @@ fn redact_curl_headers(args: &[String]) -> Vec<String> {
 }
 
 fn confirm_replace(path: &Path) -> Result<bool> {
-    use std::io::{self, Write};
-
-    print!(
-        "Replace running heimdall binary at {}? [y/N]: ",
-        path.display()
-    );
-    io::stdout().flush()?;
-    let mut line = String::new();
-    io::stdin().read_line(&mut line)?;
-    let answer = line.trim();
-    Ok(matches!(answer.to_ascii_lowercase().as_str(), "y" | "yes"))
+    map_inquire(
+        Confirm::new(&format!("Replace running heimdall binary at {}?", path.display()))
+            .with_default(false)
+            .prompt(),
+    )
 }
 
 fn apply_executable_permissions(source_exe: &Path, downloaded: &Path) -> Result<()> {

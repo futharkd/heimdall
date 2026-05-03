@@ -1,9 +1,18 @@
-use std::io::{self, Write};
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
+use inquire::{Confirm, Select};
 
 use crate::cli::{BootstrapNetbirdCommand, NetbirdInstallMethod, OutputFormat};
+
+fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
+    r.map_err(|e| match e {
+        inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
+        inquire::InquireError::OperationCanceled
+        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        other => anyhow::anyhow!("{other}"),
+    })
+}
 
 #[derive(Debug, Clone)]
 pub struct BootstrapNetbirdConfig {
@@ -109,38 +118,26 @@ fn parse_install_method_env() -> Result<Option<NetbirdInstallMethod>> {
 }
 
 fn prompt_install_method() -> Result<NetbirdInstallMethod> {
-    println!();
-    println!(
-        "NetBird install method (upstream install.sh reads this from the environment Heimdall sets):"
-    );
-    println!(
-        "  [1] Portable — GitHub release tarballs (USE_BIN_INSTALL=true). Fewer distro prompts; good for servers."
-    );
-    println!(
-        "  [2] Package — apt, dnf, or yum as detected on this host (DEBIAN_FRONTEND=noninteractive for apt)."
-    );
-    loop {
-        let answer = prompt("Choice [1/2] (default: 1): ")?;
-        let trimmed = answer.trim().to_ascii_lowercase();
-        match trimmed.as_str() {
-            "" | "1" | "binary" | "b" | "portable" => return Ok(NetbirdInstallMethod::Binary),
-            "2" | "package" | "p" | "repo" => return Ok(NetbirdInstallMethod::Package),
-            _ => println!("Enter 1 or 2 (or binary / package)."),
-        }
+    let options = vec![
+        "Portable — GitHub release tarballs (fewer distro prompts; good for servers)",
+        "Package — apt, dnf, or yum as detected on this host",
+    ];
+    let choice = map_inquire(
+        Select::new("NetBird install method:", options)
+            .with_starting_cursor(0)
+            .prompt(),
+    )?;
+    if choice.starts_with("Portable") {
+        Ok(NetbirdInstallMethod::Binary)
+    } else {
+        Ok(NetbirdInstallMethod::Package)
     }
 }
 
 fn confirm_install() -> Result<bool> {
-    let answer = prompt(
-        "This will install or update NetBird using the official install script. Continue? type 'yes' to proceed: ",
-    )?;
-    Ok(answer == "yes")
-}
-
-fn prompt(label: &str) -> Result<String> {
-    print!("{label}");
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_string())
+    map_inquire(
+        Confirm::new("This will install or update NetBird using the official install script. Continue?")
+            .with_default(false)
+            .prompt(),
+    )
 }

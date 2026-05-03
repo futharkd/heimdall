@@ -1,10 +1,18 @@
-use std::io::{self, IsTerminal, Write};
-
 use anyhow::{Result, bail};
+use inquire::Text;
 
 use crate::cli::{OutputFormat, ResetClusterCommand};
 
 const RESET_CONFIRM_TOKEN: &str = "reset-cluster";
+
+fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
+    r.map_err(|e| match e {
+        inquire::InquireError::NotTTY => anyhow::anyhow!("non-interactive destructive reset requires --confirm {RESET_CONFIRM_TOKEN}"),
+        inquire::InquireError::OperationCanceled
+        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        other => anyhow::anyhow!("{other}"),
+    })
+}
 
 #[derive(Debug, Clone)]
 pub struct ResetClusterConfig {
@@ -41,26 +49,15 @@ fn ensure_destructive_confirmed(opts: &ResetClusterCommand) -> Result<()> {
         return Ok(());
     }
 
-    if !io::stdin().is_terminal() {
-        bail!("non-interactive destructive reset requires --confirm {RESET_CONFIRM_TOKEN}");
+    let entered = map_inquire(
+        Text::new(&format!("Type '{RESET_CONFIRM_TOKEN}' to confirm full k3s+Flux reset:"))
+            .prompt(),
+    )?;
+    if entered.trim() != RESET_CONFIRM_TOKEN {
+        bail!("aborted: destructive confirmation token did not match");
     }
 
-    let entered = prompt(&format!(
-        "Type '{RESET_CONFIRM_TOKEN}' to confirm full k3s+Flux reset: "
-    ))?;
-    if entered.trim() == RESET_CONFIRM_TOKEN {
-        return Ok(());
-    }
-
-    bail!("aborted: destructive confirmation token did not match");
-}
-
-fn prompt(label: &str) -> Result<String> {
-    print!("{label}");
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_string())
+    Ok(())
 }
 
 #[cfg(test)]

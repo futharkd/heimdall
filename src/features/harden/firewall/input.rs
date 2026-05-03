@@ -1,7 +1,16 @@
 use crate::cli::{HardenFirewallCommand, OutputFormat};
 use crate::config;
 use anyhow::{Result, anyhow};
-use std::io::{self, IsTerminal, Write};
+use inquire::Confirm;
+
+fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
+    r.map_err(|e| match e {
+        inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
+        inquire::InquireError::OperationCanceled
+        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        other => anyhow::anyhow!("{other}"),
+    })
+}
 
 #[derive(Debug)]
 pub struct HardenFirewallConfig {
@@ -44,18 +53,28 @@ pub fn resolve_inputs(opts: HardenFirewallCommand) -> Result<ResolvedFirewallInp
             || arg.starts_with("--allow-https")
     });
 
-    // If no presets specified and TTY available, prompt for each
-    let (allow_ssh, allow_established, allow_http, allow_https) =
-        if !has_explicit_presets && io::stdin().is_terminal() {
-            prompt_presets()?
-        } else {
-            (
-                opts.allow_ssh,
-                opts.allow_established,
-                opts.allow_http,
-                opts.allow_https,
-            )
-        };
+    // If no presets specified, try to prompt; fall back to CLI defaults if not a TTY
+    let (allow_ssh, allow_established, allow_http, allow_https) = if !has_explicit_presets {
+        match prompt_presets() {
+            Ok(t) => t,
+            Err(e) if e.to_string().contains("not a TTY") => {
+                (
+                    opts.allow_ssh,
+                    opts.allow_established,
+                    opts.allow_http,
+                    opts.allow_https,
+                )
+            }
+            Err(e) => return Err(e),
+        }
+    } else {
+        (
+            opts.allow_ssh,
+            opts.allow_established,
+            opts.allow_http,
+            opts.allow_https,
+        )
+    };
 
     // Check confirmation for risky operation (setting default zone to drop)
     if !opts.yes && !prompt_confirmation()? {
@@ -129,22 +148,34 @@ fn read_ssh_port() -> Result<u16> {
 }
 
 fn prompt_presets() -> Result<(bool, bool, bool, bool)> {
-    let allow_ssh = confirm("Allow SSH access? [yes/no]: ")?;
-    let allow_established = confirm("Allow established/related connections? [yes/no]: ")?;
-    let allow_http = confirm("Allow HTTP (port 80)? [yes/no]: ")?;
-    let allow_https = confirm("Allow HTTPS (port 443)? [yes/no]: ")?;
+    let allow_ssh = map_inquire(
+        Confirm::new("Allow SSH access?")
+            .with_default(true)
+            .prompt(),
+    )?;
+    let allow_established = map_inquire(
+        Confirm::new("Allow established/related connections?")
+            .with_default(true)
+            .prompt(),
+    )?;
+    let allow_http = map_inquire(
+        Confirm::new("Allow HTTP (port 80)?")
+            .with_default(false)
+            .prompt(),
+    )?;
+    let allow_https = map_inquire(
+        Confirm::new("Allow HTTPS (port 443)?")
+            .with_default(false)
+            .prompt(),
+    )?;
 
     Ok((allow_ssh, allow_established, allow_http, allow_https))
 }
 
 fn prompt_confirmation() -> Result<bool> {
-    confirm("Setting default firewall zone to drop (deny all inbound). Continue? [yes/no]: ")
-}
-
-fn confirm(label: &str) -> Result<bool> {
-    print!("{}", label);
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_lowercase() == "yes")
+    map_inquire(
+        Confirm::new("Setting default firewall zone to drop (deny all inbound). Continue?")
+            .with_default(false)
+            .prompt(),
+    )
 }

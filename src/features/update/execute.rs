@@ -17,8 +17,9 @@ use super::report::UpdateReport;
 fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
     r.map_err(|e| match e {
         inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
-        inquire::InquireError::OperationCanceled
-        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        inquire::InquireError::OperationCanceled | inquire::InquireError::OperationInterrupted => {
+            anyhow::anyhow!("cancelled")
+        }
         other => anyhow::anyhow!("{other}"),
     })
 }
@@ -372,9 +373,12 @@ fn redact_curl_headers(args: &[String]) -> Vec<String> {
 
 fn confirm_replace(path: &Path) -> Result<bool> {
     map_inquire(
-        Confirm::new(&format!("Replace running heimdall binary at {}?", path.display()))
-            .with_default(false)
-            .prompt(),
+        Confirm::new(&format!(
+            "Replace running heimdall binary at {}?",
+            path.display()
+        ))
+        .with_default(false)
+        .prompt(),
     )
 }
 

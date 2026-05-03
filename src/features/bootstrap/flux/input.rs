@@ -11,8 +11,9 @@ use crate::runner::{CommandRunner, IoMode};
 fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
     r.map_err(|e| match e {
         inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
-        inquire::InquireError::OperationCanceled
-        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        inquire::InquireError::OperationCanceled | inquire::InquireError::OperationInterrupted => {
+            anyhow::anyhow!("cancelled")
+        }
         other => anyhow::anyhow!("{other}"),
     })
 }
@@ -171,8 +172,7 @@ fn resolve_cluster_path(opts: &BootstrapFluxCommand) -> Result<String> {
     }
     loop {
         let line = map_inquire(
-            Text::new("Path inside the Git repo for Flux manifests (e.g. clusters/prod):")
-                .prompt(),
+            Text::new("Path inside the Git repo for Flux manifests (e.g. clusters/prod):").prompt(),
         )?;
         let t = line.trim();
         if t.is_empty() {

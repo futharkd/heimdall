@@ -7,9 +7,12 @@ const RESET_CONFIRM_TOKEN: &str = "reset-cluster";
 
 fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
     r.map_err(|e| match e {
-        inquire::InquireError::NotTTY => anyhow::anyhow!("non-interactive destructive reset requires --confirm {RESET_CONFIRM_TOKEN}"),
-        inquire::InquireError::OperationCanceled
-        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        inquire::InquireError::NotTTY => anyhow::anyhow!(
+            "non-interactive destructive reset requires --confirm {RESET_CONFIRM_TOKEN}"
+        ),
+        inquire::InquireError::OperationCanceled | inquire::InquireError::OperationInterrupted => {
+            anyhow::anyhow!("cancelled")
+        }
         other => anyhow::anyhow!("{other}"),
     })
 }
@@ -50,8 +53,10 @@ fn ensure_destructive_confirmed(opts: &ResetClusterCommand) -> Result<()> {
     }
 
     let entered = map_inquire(
-        Text::new(&format!("Type '{RESET_CONFIRM_TOKEN}' to confirm full k3s+Flux reset:"))
-            .prompt(),
+        Text::new(&format!(
+            "Type '{RESET_CONFIRM_TOKEN}' to confirm full k3s+Flux reset:"
+        ))
+        .prompt(),
     )?;
     if entered.trim() != RESET_CONFIRM_TOKEN {
         bail!("aborted: destructive confirmation token did not match");

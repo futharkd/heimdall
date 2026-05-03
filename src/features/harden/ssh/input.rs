@@ -5,8 +5,9 @@ use inquire::{Confirm, CustomType};
 fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
     r.map_err(|e| match e {
         inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
-        inquire::InquireError::OperationCanceled
-        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        inquire::InquireError::OperationCanceled | inquire::InquireError::OperationInterrupted => {
+            anyhow::anyhow!("cancelled")
+        }
         other => anyhow::anyhow!("{other}"),
     })
 }

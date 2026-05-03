@@ -37,6 +37,15 @@ pub enum KomodoMode {
     Periphery,
 }
 
+impl std::fmt::Display for KomodoMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KomodoMode::Core => write!(f, "Core"),
+            KomodoMode::Periphery => write!(f, "Periphery"),
+        }
+    }
+}
+
 #[derive(Debug, Parser)]
 pub struct GlobalOpts {
     /// When to emit ANSI colors in human reports (`NO_COLOR` in the environment always disables).

@@ -6,8 +6,9 @@ use inquire::Confirm;
 fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
     r.map_err(|e| match e {
         inquire::InquireError::NotTTY => anyhow::anyhow!("not a TTY; pass the flag directly"),
-        inquire::InquireError::OperationCanceled
-        | inquire::InquireError::OperationInterrupted => anyhow::anyhow!("cancelled"),
+        inquire::InquireError::OperationCanceled | inquire::InquireError::OperationInterrupted => {
+            anyhow::anyhow!("cancelled")
+        }
         other => anyhow::anyhow!("{other}"),
     })
 }
@@ -57,14 +58,12 @@ pub fn resolve_inputs(opts: HardenFirewallCommand) -> Result<ResolvedFirewallInp
     let (allow_ssh, allow_established, allow_http, allow_https) = if !has_explicit_presets {
         match prompt_presets() {
             Ok(t) => t,
-            Err(e) if e.to_string().contains("not a TTY") => {
-                (
-                    opts.allow_ssh,
-                    opts.allow_established,
-                    opts.allow_http,
-                    opts.allow_https,
-                )
-            }
+            Err(e) if e.to_string().contains("not a TTY") => (
+                opts.allow_ssh,
+                opts.allow_established,
+                opts.allow_http,
+                opts.allow_https,
+            ),
             Err(e) => return Err(e),
         }
     } else {

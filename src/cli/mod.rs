@@ -45,18 +45,27 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Workflow: install and configure infrastructure components (k3s, Flux, NetBird, user + SSH).
     Bootstrap(BootstrapCommand),
+    /// Workflow: harden infrastructure security (SSH config, firewall, etc.).
     Harden(HardenCommand),
+    /// Workflow: reset infrastructure to initial state (k3s cluster wipe).
     Reset(ResetCommand),
+    /// Workflow: verify infrastructure health and configuration (read-only checks).
     Verify(VerifyCommand),
+    /// Workflow: replace the running heimdall binary with a newer version from the package registry.
     Update(UpdateCommand),
 }
 
 #[derive(Debug, Subcommand)]
 pub enum BootstrapAction {
+    /// Install Flux GitOps framework with SSH-based Git bootstrap or reconcile existing install.
     Flux(BootstrapFluxCommand),
+    /// Install k3s Kubernetes cluster (server or agent) via the official get.k3s.io installer.
     K3s(BootstrapK3sCommand),
+    /// Install and join NetBird VPN overlay network via official installer.
     Netbird(BootstrapNetbirdCommand),
+    /// Create or update admin user with SSH public key authentication.
     User(BootstrapUserCommand),
 }
 
@@ -68,6 +77,7 @@ pub struct BootstrapCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum ResetAction {
+    /// Destructively reset k3s cluster to initial state (drain nodes, purge data, uninstall).
     Cluster(ResetClusterCommand),
 }
 
@@ -78,6 +88,11 @@ pub struct ResetCommand {
 }
 
 #[derive(Debug, clap::Args)]
+#[command(about = "Destructively reset k3s cluster to initial state.")]
+#[command(long_about = "Drain all nodes, purge all data, and uninstall k3s. DESTRUCTIVE OPERATION. \
+Requires explicit confirmation via --confirm=reset-cluster (or TTY prompt). \
+Supports --dry-run (print planned commands without execution), --yes (skip prompt, still requires --confirm). \
+Outputs structured report (human or --output json).")]
 pub struct ResetClusterCommand {
     /// Skip destructive execution and print the planned reset commands only.
     #[arg(long)]
@@ -93,6 +108,13 @@ pub struct ResetClusterCommand {
 }
 
 #[derive(Debug, clap::Args)]
+#[command(about = "Install Flux GitOps framework and bootstrap a Git-based declarative configuration repo.")]
+#[command(long_about = "Install Flux and run `flux bootstrap git` against a Git repository (SSH-based deploy key or BYOK). \
+Idempotent: if the Flux namespace exists, reconciles existing install instead. \
+Requires SSH Git URL (SCP-style git@host:path normalized to ssh://). \
+Deploy keys need write access (Flux pushes initial manifests). \
+Interactive key generation by default (TTY + ssh-keygen); BYOK via --private-key-file. \
+Optional Flux CLI auto-install via https://fluxcd.io/install.sh (skip with --force).")]
 pub struct BootstrapFluxCommand {
     /// SSH Git URL (e.g. `ssh://git@gitlab.com/group/repo.git`). Omit to use `FLUX_GIT_URL` or an interactive prompt when stdin is a TTY.
     #[arg(long)]
@@ -133,6 +155,13 @@ pub struct BootstrapFluxCommand {
 }
 
 #[derive(Debug, clap::Args)]
+#[command(about = "Install k3s lightweight Kubernetes distribution.")]
+#[command(long_about = "Install k3s (server or agent) via official get.k3s.io installer. \
+Idempotent: probes `command -v k3s` and skips download/install if found (use --force to override). \
+Agent role requires --server-url / K3S_URL (https://<host>:<port>) and --token / K3S_TOKEN. \
+Optional: pin version (--version / INSTALL_K3S_VERSION), extra k3s args (--install-exec / INSTALL_K3S_EXEC). \
+Verification: runs `sudo k3s kubectl get nodes -o name` and requires at least one node. \
+Supports --dry-run, --yes, --force, --output json.")]
 pub struct BootstrapK3sCommand {
     /// Install a k3s server (default) or join this host as an agent using `K3S_URL` / `K3S_TOKEN`.
     #[arg(long, value_enum, default_value_t = K3sRole::Server)]
@@ -167,6 +196,12 @@ pub struct BootstrapK3sCommand {
 }
 
 #[derive(Debug, clap::Args)]
+#[command(about = "Install NetBird VPN overlay network client.")]
+#[command(long_about = "Install NetBird via official https://pkgs.netbird.io/install.sh, optionally join a management service, and verify connectivity. \
+Install method: --install-method binary (default, GitHub releases) or package (apt/dnf/yum, set DEBIAN_FRONTEND=noninteractive for quiet apt). \
+Join: uses `netbird up` with optional --setup-key / NETBIRD_SETUP_KEY and --management-url / NETBIRD_MANAGEMENT_URL. \
+Verify: runs `netbird status`, requires 'Management: Connected' and 'Signal: Connected' in output. \
+Optional: --release / NETBIRD_RELEASE for version pin. Supports --dry-run, --yes, --output json.")]
 pub struct BootstrapNetbirdCommand {
     /// Skip NetBird UI packages (maps to SKIP_UI_APP for the official install script).
     #[arg(long)]
@@ -192,6 +227,14 @@ pub struct BootstrapNetbirdCommand {
 }
 
 #[derive(Debug, clap::Args)]
+#[command(about = "Create or update an admin user with SSH public key authentication.")]
+#[command(long_about = "Create or ensure user exists with SSH keys in authorized_keys (idempotent). \
+Resolve username from --user or interactive prompt. Resolve SSH keys from --key / --key-file or interactive prompt. \
+Validation: username format, SSH key algorithms (ssh-ed25519, ssh-rsa, ecdsa-sha2-nistp256). \
+Operations: group creation, user creation, .ssh dir setup, authorized_keys management (atomic promotion), \
+optional hardening (--disable-root-login, --disable-password-auth, requires --yes or confirmation). \
+Idempotent: uses grep -qxF to skip duplicate keys. Stop-on-failure behavior. \
+Supports --dry-run, --yes, --output json.")]
 pub struct BootstrapUserCommand {
     #[arg(long)]
     pub user: Option<String>,
@@ -215,6 +258,7 @@ pub struct BootstrapUserCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum HardenAction {
+    /// Harden SSH server configuration (disable root login, password auth, etc.). [Not yet implemented.]
     Ssh,
 }
 
@@ -226,6 +270,7 @@ pub struct HardenCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum VerifyAction {
+    /// Run environment diagnostics (cargo, git, current working directory accessibility).
     Doctor(VerifyDoctorCommand),
 }
 
@@ -236,12 +281,20 @@ pub struct VerifyCommand {
 }
 
 #[derive(Debug, clap::Args)]
+#[command(about = "Run environment diagnostics and report infrastructure health.")]
+#[command(long_about = "Non-mutating checks: cargo availability, current working directory accessibility, git repository presence. \
+Exit: 0 if no failures, 1 if any check fails. Supports --output json for structured results.")]
 pub struct VerifyDoctorCommand {
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     pub output: OutputFormat,
 }
 
 #[derive(Debug, clap::Args)]
+#[command(about = "Replace the running binary with a newer version from the package registry.")]
+#[command(long_about = "Fetch remote .sha256 from GitLab Generic Package Registry (heimdall/{latest|tag}/heimdall-linux-amd64.sha256). \
+Compare to SHA256 of the running binary; skip download if match (unless --force). Requires curl on PATH and write access to binary directory. \
+Linux x86_64 only. Optional GITLAB_TOKEN / PRIVATE_TOKEN for authentication (redacted in output). \
+Supports --dry-run (resolve URLs + fetch checksum only), --yes (skip confirmation), --force (re-download), --tag (non-latest version), --output json.")]
 pub struct UpdateCommand {
     /// Print resolved URLs and digests; fetch remote `.sha256` only (no full binary download, no replace).
     #[arg(long)]

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/futharkd/heimdall/compare/v0.2.3...v0.3.0) (2026-05-04)
+
+
+### Features
+
+* add docker bootstrap command ([61e9123](https://github.com/futharkd/heimdall/commit/61e9123a0b7fa9e0b254dae03b4d08c2d3d3d1d5))
+* **harden ssh:** add sudo fallback on permission denied + verify port listening ([6b78db0](https://github.com/futharkd/heimdall/commit/6b78db05cbc63a6470446178ed9cb22502a67ed6))
+
 ## [0.2.3](https://github.com/futharkd/heimdall/compare/v0.2.2...v0.2.3) (2026-05-03)
 
 

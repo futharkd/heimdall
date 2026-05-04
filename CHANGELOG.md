@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/futharkd/heimdall/compare/v0.4.1...v0.5.0) (2026-05-04)
+
+
+### Features
+
+* add global sudo fallback and always sudo for specific commands ([a31a17b](https://github.com/futharkd/heimdall/commit/a31a17b293bbfa6a9403734693c5e4beb40698be))
+
 ## [0.4.1](https://github.com/futharkd/heimdall/compare/v0.4.0...v0.4.1) (2026-05-04)
 
 

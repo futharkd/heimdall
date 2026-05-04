@@ -78,6 +78,8 @@ pub enum Command {
 
 #[derive(Debug, Subcommand)]
 pub enum BootstrapAction {
+    /// Install and configure Docker Engine on the current system.
+    Docker(BootstrapDockerCommand),
     /// Install Flux GitOps framework with SSH-based Git bootstrap or reconcile existing install.
     Flux(BootstrapFluxCommand),
     /// Install k3s Kubernetes cluster (server or agent) via the official get.k3s.io installer.
@@ -176,6 +178,39 @@ pub struct BootstrapFluxCommand {
     #[arg(long)]
     pub dry_run: bool,
     #[arg(long)]
+    pub yes: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
+}
+
+#[derive(Debug, clap::Args)]
+#[command(about = "Install and configure Docker Engine on the current system.")]
+#[command(
+    long_about = "Install Docker via the official convenience script (get.docker.com), enable the systemd service, \
+optionally write /etc/docker/daemon.json (log driver, registry mirrors), optionally add a user to the docker group, \
+and verify the daemon. \
+Idempotent: probes `command -v docker` and skips download/install if found (use --force to override). \
+Supports --dry-run, --yes, --force, --output json."
+)]
+pub struct BootstrapDockerCommand {
+    /// Install script URL (default https://get.docker.com; env `DOCKER_INSTALL_SCRIPT_URL`).
+    #[arg(long, value_name = "URL")]
+    pub install_script_url: Option<String>,
+    /// Add this user to the docker group (e.g. `ubuntu`).
+    #[arg(long, value_name = "USERNAME")]
+    pub user: Option<String>,
+    /// Docker daemon log driver (written to /etc/docker/daemon.json).
+    #[arg(long, value_name = "DRIVER")]
+    pub log_driver: Option<String>,
+    /// Registry mirror URLs (repeatable, written to /etc/docker/daemon.json).
+    #[arg(long = "registry-mirror", value_name = "URL")]
+    pub registry_mirrors: Vec<String>,
+    /// Re-install even if docker is already on PATH.
+    #[arg(long)]
+    pub force: bool,
+    #[arg(long)]
+    pub dry_run: bool,
+    #[arg(long, short = 'y')]
     pub yes: bool,
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     pub output: OutputFormat,

@@ -10,6 +10,7 @@ pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
             VerifyAction::Doctor(opts) => verify::doctor::command::run(opts, &cli.global),
         },
         Command::Bootstrap(cmd) => match cmd.action {
+            BootstrapAction::Docker(opts) => bootstrap::docker::command::run(opts, &cli.global),
             BootstrapAction::Flux(opts) => bootstrap::flux::command::run(opts, &cli.global),
             BootstrapAction::K3s(opts) => bootstrap::k3s::command::run(opts, &cli.global),
             BootstrapAction::Komodo(opts) => bootstrap::komodo::command::run(opts, &cli.global),

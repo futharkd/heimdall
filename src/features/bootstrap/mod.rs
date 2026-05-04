@@ -1,3 +1,4 @@
+pub mod docker;
 pub mod flux;
 pub mod k3s;
 pub mod komodo;

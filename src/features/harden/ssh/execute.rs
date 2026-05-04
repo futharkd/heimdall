@@ -12,6 +12,7 @@ pub fn execute_plan(
     use inquire::Confirm;
 
     let mut results = Vec::new();
+    let mut sudo_approved = false;
 
     for op in operations {
         let result = if config.dry_run {
@@ -32,11 +33,23 @@ pub fn execute_plan(
             #[allow(clippy::collapsible_if)]
             if let Ok(output) = &attempt_result {
                 if !output.status.success() && is_permission_error(&output.stderr) {
-                    let prompt = format!(
-                        "Operation '{}' requires elevated privileges. Retry with sudo?",
-                        op.description
-                    );
-                    if let Ok(true) = Confirm::new(&prompt).prompt() {
+                    let should_retry = if sudo_approved {
+                        true
+                    } else {
+                        let prompt = format!(
+                            "Operation '{}' requires elevated privileges. Retry with sudo?",
+                            op.description
+                        );
+                        match Confirm::new(&prompt).prompt() {
+                            Ok(true) => {
+                                sudo_approved = true;
+                                true
+                            }
+                            _ => false,
+                        }
+                    };
+
+                    if should_retry {
                         let mut sudo_args = vec![op.command.as_str()];
                         sudo_args.extend(op.args.iter().map(|s| s.as_str()));
 

@@ -3,10 +3,20 @@ use super::validate::validate_port;
 use anyhow::Result;
 use serde::Serialize;
 
+const SELINUX_UTILS_PKG: &str = "policycoreutils-python-utils";
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SshOpKind {
+    Shell,
+    EnsurePackage { package: String },
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SshPlannedOperation {
     pub id: String,
     pub description: String,
+    pub kind: SshOpKind,
     pub command: String,
     pub args: Vec<String>,
     pub failure_is_warning: bool,
@@ -22,6 +32,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             operations.push(SshPlannedOperation {
                 id: "backup_sshd_config".to_string(),
                 description: "Backup sshd_config".to_string(),
+                kind: SshOpKind::Shell,
                 command: "cp".to_string(),
                 args: vec![
                     "/etc/ssh/sshd_config".to_string(),
@@ -33,6 +44,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             operations.push(SshPlannedOperation {
                 id: "change_ssh_port".to_string(),
                 description: format!("Change SSH port to {}", new_port),
+                kind: SshOpKind::Shell,
                 command: "sed".to_string(),
                 args: vec![
                     "-E".to_string(),
@@ -49,6 +61,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             operations.push(SshPlannedOperation {
                 id: "ensure_port_directive".to_string(),
                 description: format!("Ensure Port {} directive present", new_port),
+                kind: SshOpKind::Shell,
                 command: "sh".to_string(),
                 args: vec![
                     "-c".to_string(),
@@ -63,6 +76,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             operations.push(SshPlannedOperation {
                 id: "verify_port_in_config".to_string(),
                 description: format!("Verify port {} set in sshd_config", new_port),
+                kind: SshOpKind::Shell,
                 command: "grep".to_string(),
                 args: vec![
                     "-qE".to_string(),
@@ -75,14 +89,30 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             operations.push(SshPlannedOperation {
                 id: "validate_sshd_config".to_string(),
                 description: "Validate sshd_config".to_string(),
+                kind: SshOpKind::Shell,
                 command: "sshd".to_string(),
                 args: vec!["-t".to_string()],
                 failure_is_warning: false,
             });
 
             operations.push(SshPlannedOperation {
+                id: "ensure_semanage_package".to_string(),
+                description: format!(
+                    "Install {} if missing (provides semanage)",
+                    SELINUX_UTILS_PKG
+                ),
+                kind: SshOpKind::EnsurePackage {
+                    package: SELINUX_UTILS_PKG.to_string(),
+                },
+                command: String::new(),
+                args: vec![],
+                failure_is_warning: false,
+            });
+
+            operations.push(SshPlannedOperation {
                 id: "selinux_allow_ssh_port".to_string(),
                 description: format!("Label port {} as ssh_port_t in SELinux policy", new_port),
+                kind: SshOpKind::Shell,
                 command: "sh".to_string(),
                 args: vec![
                     "-c".to_string(),
@@ -99,6 +129,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             operations.push(SshPlannedOperation {
                 id: "reload_sshd".to_string(),
                 description: "Reload SSH service".to_string(),
+                kind: SshOpKind::Shell,
                 command: "systemctl".to_string(),
                 args: vec!["reload-or-restart".to_string(), "sshd".to_string()],
                 failure_is_warning: false,
@@ -107,6 +138,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             operations.push(SshPlannedOperation {
                 id: "verify_ssh_listening".to_string(),
                 description: format!("Verify SSH listening on port {}", new_port),
+                kind: SshOpKind::Shell,
                 command: "sh".to_string(),
                 args: vec![
                     "-c".to_string(),
@@ -121,6 +153,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
         operations.push(SshPlannedOperation {
             id: "disable_root_login".to_string(),
             description: "Disable root login".to_string(),
+            kind: SshOpKind::Shell,
             command: "sed".to_string(),
             args: vec![
                 "-E".to_string(),
@@ -135,6 +168,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
         operations.push(SshPlannedOperation {
             id: "verify_root_login_disabled".to_string(),
             description: "Verify root login disabled".to_string(),
+            kind: SshOpKind::Shell,
             command: "grep".to_string(),
             args: vec![
                 "-qE".to_string(),
@@ -149,6 +183,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
         operations.push(SshPlannedOperation {
             id: "disable_password_auth".to_string(),
             description: "Disable password authentication".to_string(),
+            kind: SshOpKind::Shell,
             command: "sed".to_string(),
             args: vec![
                 "-E".to_string(),
@@ -162,6 +197,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
         operations.push(SshPlannedOperation {
             id: "verify_password_auth_disabled".to_string(),
             description: "Verify password authentication disabled".to_string(),
+            kind: SshOpKind::Shell,
             command: "grep".to_string(),
             args: vec![
                 "-qE".to_string(),
@@ -176,6 +212,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
         operations.push(SshPlannedOperation {
             id: "validate_final".to_string(),
             description: "Final sshd_config validation".to_string(),
+            kind: SshOpKind::Shell,
             command: "sshd".to_string(),
             args: vec!["-t".to_string()],
             failure_is_warning: false,

@@ -1,6 +1,7 @@
 use super::input::HardenSshConfig;
-use super::plan::SshPlannedOperation;
+use super::plan::{SshOpKind, SshPlannedOperation};
 use super::report::{HardenSshReport, OperationResultOwned};
+use crate::features::operations::{detect_package_manager, install_invocation, run_ensure_package};
 use crate::runner::sudo::{SudoPolicy, run_with_env_io_sudo};
 use crate::runner::{CommandRunner, IoMode};
 
@@ -18,18 +19,23 @@ pub fn execute_plan(
                 id: op.id.clone(),
                 description: op.description.clone(),
                 status: "planned".to_string(),
-                detail: format!("sudo {} {}", op.command, op.args.join(" ")),
+                detail: planned_detail(op),
             }
         } else {
-            let attempt_result = run_with_env_io_sudo(
-                runner,
-                &op.command,
-                &op.args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-                &[],
-                io_mode,
-                SudoPolicy::AlwaysSudo::<fn(&str) -> anyhow::Result<bool>>,
-                &op.description,
-            );
+            let attempt_result = match &op.kind {
+                SshOpKind::Shell => run_with_env_io_sudo(
+                    runner,
+                    &op.command,
+                    &op.args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                    &[],
+                    io_mode,
+                    SudoPolicy::AlwaysSudo::<fn(&str) -> anyhow::Result<bool>>,
+                    &op.description,
+                ),
+                SshOpKind::EnsurePackage { package } => {
+                    run_ensure_package(runner, package, io_mode, &op.description)
+                }
+            };
 
             match attempt_result {
                 Ok(output) => {
@@ -68,5 +74,21 @@ pub fn execute_plan(
 
     HardenSshReport {
         operations: results,
+    }
+}
+
+fn planned_detail(op: &SshPlannedOperation) -> String {
+    match &op.kind {
+        SshOpKind::Shell => {
+            format!("sudo {} {}", op.command, op.args.join(" "))
+        }
+        SshOpKind::EnsurePackage { package } => {
+            if let Some(pm) = detect_package_manager() {
+                let (prog, argv) = install_invocation(pm, package);
+                format!("sudo {} {}", prog, argv.join(" "))
+            } else {
+                format!("sudo <package-manager> install -y {package}")
+            }
+        }
     }
 }

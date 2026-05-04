@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::output::ColorArg;
 
-#[derive(Debug, Clone, Copy, Default, ValueEnum)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
 pub enum OutputFormat {
     #[default]
     Human,
@@ -475,9 +475,10 @@ pub struct HardenFirewallCommand {
 #[command(about = "Harden SSH server configuration.")]
 #[command(
     long_about = "Change SSH port (with firewall safety checks) and optionally disable root login / password auth. \
+Secure defaults: root login and password authentication are disabled unless you opt out (--allow-root-login / --allow-password-auth). \
+Use interactive mode for a checkbox-style prompt over both options. \
 Port change with full safety: backs up sshd_config, probes firewall, auto-opens port if needed (or errors without --yes). \
 Runs sshd -t validation before reload. Idempotent: skips port change if already set. \
-Optional toggles: --disable-root-login, --disable-password-auth (prompted if not specified and stdin is TTY). \
 Requires explicit confirmation for risky operations unless --yes. \
 Supports --dry-run, --output json."
 )]
@@ -486,12 +487,20 @@ pub struct HardenSshCommand {
     #[arg(long)]
     pub port: Option<u16>,
 
-    /// Disable root login (PermitRootLogin no).
-    #[arg(long, default_value = "false")]
+    /// Allow SSH login as root (default: disable root login / PermitRootLogin no).
+    #[arg(long)]
+    pub allow_root_login: bool,
+
+    /// Allow password authentication (default: disable password auth).
+    #[arg(long)]
+    pub allow_password_auth: bool,
+
+    /// Disable root login (deprecated: same as default secure behavior; prefer omitting this flag).
+    #[arg(long)]
     pub disable_root_login: bool,
 
-    /// Disable password authentication (PasswordAuthentication no).
-    #[arg(long, default_value = "false")]
+    /// Disable password authentication (deprecated: same as default secure behavior).
+    #[arg(long)]
     pub disable_password_auth: bool,
 
     #[arg(long)]

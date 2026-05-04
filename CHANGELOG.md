@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/futharkd/heimdall/compare/v0.5.0...v0.5.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* **harden ssh:** reload or restart service for edge cases ([e44996c](https://github.com/futharkd/heimdall/commit/e44996cac1248caa00e71358ddf46167fb34fcb0))
+
 ## [0.5.0](https://github.com/futharkd/heimdall/compare/v0.4.1...v0.5.0) (2026-05-04)
 
 

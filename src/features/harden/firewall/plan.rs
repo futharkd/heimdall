@@ -76,16 +76,13 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
         failure_is_warning: true,
     });
 
-    // Set default zone to drop
+    // Set default zone to drop (--set-default-zone is stand-alone; do not combine with --permanent).
     operations.push(FirewallPlannedOperation {
         id: "set_default_zone_drop".to_string(),
         description: "Set default firewall zone to drop (deny all inbound)".to_string(),
         kind: FirewallOpKind::Shell,
         command: "firewall-cmd".to_string(),
-        args: vec![
-            "--permanent".to_string(),
-            "--set-default-zone=drop".to_string(),
-        ],
+        args: vec!["--set-default-zone=drop".to_string()],
         env: vec![],
         failure_is_warning: false,
     });

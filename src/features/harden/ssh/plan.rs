@@ -35,8 +35,38 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
                 description: format!("Change SSH port to {}", new_port),
                 command: "sed".to_string(),
                 args: vec![
+                    "-E".to_string(),
                     "-i".to_string(),
-                    format!("s/^#?Port .*/Port {}/", new_port),
+                    format!(
+                        "s/^[[:space:]]*#?[[:space:]]*Port[[:space:]]+.*/Port {}/",
+                        new_port
+                    ),
+                    "/etc/ssh/sshd_config".to_string(),
+                ],
+                failure_is_warning: false,
+            });
+
+            operations.push(SshPlannedOperation {
+                id: "ensure_port_directive".to_string(),
+                description: format!("Ensure Port {} directive present", new_port),
+                command: "sh".to_string(),
+                args: vec![
+                    "-c".to_string(),
+                    format!(
+                        "grep -qE '^Port [[:space:]]*{}' /etc/ssh/sshd_config || printf '\\nPort {}\\n' >> /etc/ssh/sshd_config",
+                        new_port, new_port
+                    ),
+                ],
+                failure_is_warning: false,
+            });
+
+            operations.push(SshPlannedOperation {
+                id: "verify_port_in_config".to_string(),
+                description: format!("Verify port {} set in sshd_config", new_port),
+                command: "grep".to_string(),
+                args: vec![
+                    "-qE".to_string(),
+                    format!("^Port[[:space:]]+{}", new_port),
                     "/etc/ssh/sshd_config".to_string(),
                 ],
                 failure_is_warning: false,
@@ -77,8 +107,22 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             description: "Disable root login".to_string(),
             command: "sed".to_string(),
             args: vec![
+                "-E".to_string(),
                 "-i".to_string(),
-                "s/^#?PermitRootLogin .*/PermitRootLogin no/".to_string(),
+                "s/^[[:space:]]*#?[[:space:]]*PermitRootLogin[[:space:]]+.*/PermitRootLogin no/"
+                    .to_string(),
+                "/etc/ssh/sshd_config".to_string(),
+            ],
+            failure_is_warning: false,
+        });
+
+        operations.push(SshPlannedOperation {
+            id: "verify_root_login_disabled".to_string(),
+            description: "Verify root login disabled".to_string(),
+            command: "grep".to_string(),
+            args: vec![
+                "-qE".to_string(),
+                "^PermitRootLogin[[:space:]]+no".to_string(),
                 "/etc/ssh/sshd_config".to_string(),
             ],
             failure_is_warning: false,
@@ -91,8 +135,21 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             description: "Disable password authentication".to_string(),
             command: "sed".to_string(),
             args: vec![
+                "-E".to_string(),
                 "-i".to_string(),
-                "s/^#?PasswordAuthentication .*/PasswordAuthentication no/".to_string(),
+                "s/^[[:space:]]*#?[[:space:]]*PasswordAuthentication[[:space:]]+.*/PasswordAuthentication no/".to_string(),
+                "/etc/ssh/sshd_config".to_string(),
+            ],
+            failure_is_warning: false,
+        });
+
+        operations.push(SshPlannedOperation {
+            id: "verify_password_auth_disabled".to_string(),
+            description: "Verify password authentication disabled".to_string(),
+            command: "grep".to_string(),
+            args: vec![
+                "-qE".to_string(),
+                "^PasswordAuthentication[[:space:]]+no".to_string(),
                 "/etc/ssh/sshd_config".to_string(),
             ],
             failure_is_warning: false,

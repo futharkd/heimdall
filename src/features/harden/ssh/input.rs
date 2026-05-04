@@ -19,6 +19,9 @@ pub struct HardenSshConfig {
     pub disable_root_login: bool,
     pub disable_password_auth: bool,
     pub dry_run: bool,
+    /// When `true`, skip interactive confirmations (mirrors `--yes` / `SudoOnPermissionDenied` prompt).
+    #[allow(dead_code)]
+    pub assume_yes: bool,
 }
 
 pub struct ResolvedSshInputs {
@@ -43,6 +46,7 @@ pub fn resolve_inputs(opts: HardenSshCommand) -> Result<ResolvedSshInputs> {
         disable_root_login: opts.disable_root_login,
         disable_password_auth: opts.disable_password_auth,
         dry_run: opts.dry_run,
+        assume_yes: opts.yes,
     };
 
     Ok(ResolvedSshInputs {

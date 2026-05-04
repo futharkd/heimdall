@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/futharkd/heimdall/compare/v0.3.0...v0.4.0) (2026-05-04)
+
+
+### Features
+
+* **harden ssh:** remember sudo approval across operations in same execution ([843a011](https://github.com/futharkd/heimdall/commit/843a0119f58ca4fd596ebac4f451b17e6e5ea27c))
+
+
+### Bug Fixes
+
+* **harden ssh:** add 'Access denied' to permission error detection for systemd services ([c49adfd](https://github.com/futharkd/heimdall/commit/c49adfd6dfc19090bd305bf3bac1d0850887910d))
+
 ## [0.3.0](https://github.com/futharkd/heimdall/compare/v0.2.3...v0.3.0) (2026-05-04)
 
 

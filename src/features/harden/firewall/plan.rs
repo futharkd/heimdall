@@ -3,10 +3,20 @@ use super::validate::validate_custom_rule;
 use anyhow::Result;
 use serde::Serialize;
 
+const FIREWALLD_PACKAGE: &str = "firewalld";
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FirewallOpKind {
+    Shell,
+    EnsurePackage { package: String },
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct FirewallPlannedOperation {
     pub id: String,
     pub description: String,
+    pub kind: FirewallOpKind,
     pub command: String,
     pub args: Vec<String>,
     pub env: Vec<(String, String)>,
@@ -21,10 +31,23 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
         validate_custom_rule(rule)?;
     }
 
+    operations.push(FirewallPlannedOperation {
+        id: "ensure_firewalld_package".to_string(),
+        description: format!("Install {} package if missing", FIREWALLD_PACKAGE),
+        kind: FirewallOpKind::EnsurePackage {
+            package: FIREWALLD_PACKAGE.to_string(),
+        },
+        command: String::new(),
+        args: vec![],
+        env: vec![],
+        failure_is_warning: false,
+    });
+
     // Check firewall-cmd is installed
     operations.push(FirewallPlannedOperation {
         id: "probe_firewalld_installed".to_string(),
         description: "Check firewalld-cmd is installed".to_string(),
+        kind: FirewallOpKind::Shell,
         command: "sh".to_string(),
         args: vec!["-c".to_string(), "command -v firewall-cmd".to_string()],
         env: vec![],
@@ -35,6 +58,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
     operations.push(FirewallPlannedOperation {
         id: "probe_firewalld_active".to_string(),
         description: "Check firewalld service is running".to_string(),
+        kind: FirewallOpKind::Shell,
         command: "systemctl".to_string(),
         args: vec!["is-active".to_string(), "firewalld".to_string()],
         env: vec![],
@@ -45,6 +69,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
     operations.push(FirewallPlannedOperation {
         id: "start_firewalld".to_string(),
         description: "Start firewalld service".to_string(),
+        kind: FirewallOpKind::Shell,
         command: "systemctl".to_string(),
         args: vec!["start".to_string(), "firewalld".to_string()],
         env: vec![],
@@ -55,6 +80,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
     operations.push(FirewallPlannedOperation {
         id: "set_default_zone_drop".to_string(),
         description: "Set default firewall zone to drop (deny all inbound)".to_string(),
+        kind: FirewallOpKind::Shell,
         command: "firewall-cmd".to_string(),
         args: vec![
             "--permanent".to_string(),
@@ -69,6 +95,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
         operations.push(FirewallPlannedOperation {
             id: "allow_established".to_string(),
             description: "Allow established/related connections".to_string(),
+            kind: FirewallOpKind::Shell,
             command: "firewall-cmd".to_string(),
             args: vec![
                 "--permanent".to_string(),
@@ -93,6 +120,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
         operations.push(FirewallPlannedOperation {
             id: "allow_ssh".to_string(),
             description: format!("Allow SSH access (port {})", config.ssh_port),
+            kind: FirewallOpKind::Shell,
             command: "firewall-cmd".to_string(),
             args,
             env: vec![],
@@ -104,6 +132,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
         operations.push(FirewallPlannedOperation {
             id: "allow_http".to_string(),
             description: "Allow HTTP (port 80)".to_string(),
+            kind: FirewallOpKind::Shell,
             command: "firewall-cmd".to_string(),
             args: vec!["--permanent".to_string(), "--add-service=http".to_string()],
             env: vec![],
@@ -115,6 +144,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
         operations.push(FirewallPlannedOperation {
             id: "allow_https".to_string(),
             description: "Allow HTTPS (port 443)".to_string(),
+            kind: FirewallOpKind::Shell,
             command: "firewall-cmd".to_string(),
             args: vec!["--permanent".to_string(), "--add-service=https".to_string()],
             env: vec![],
@@ -130,6 +160,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
                 operations.push(FirewallPlannedOperation {
                     id: "custom_rule_tcp".to_string(),
                     description: format!("Allow custom port {}/tcp", rule.port),
+                    kind: FirewallOpKind::Shell,
                     command: "firewall-cmd".to_string(),
                     args: vec![
                         "--permanent".to_string(),
@@ -142,6 +173,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
                 operations.push(FirewallPlannedOperation {
                     id: "custom_rule_udp".to_string(),
                     description: format!("Allow custom port {}/udp", rule.port),
+                    kind: FirewallOpKind::Shell,
                     command: "firewall-cmd".to_string(),
                     args: vec![
                         "--permanent".to_string(),
@@ -155,6 +187,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
                 operations.push(FirewallPlannedOperation {
                     id: "custom_rule".to_string(),
                     description: format!("Allow custom port {}/{}", rule.port, rule.protocol),
+                    kind: FirewallOpKind::Shell,
                     command: "firewall-cmd".to_string(),
                     args: vec![
                         "--permanent".to_string(),
@@ -171,6 +204,7 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
     operations.push(FirewallPlannedOperation {
         id: "reload_firewall".to_string(),
         description: "Reload firewall configuration".to_string(),
+        kind: FirewallOpKind::Shell,
         command: "firewall-cmd".to_string(),
         args: vec!["--reload".to_string()],
         env: vec![],

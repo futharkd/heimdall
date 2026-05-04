@@ -1,6 +1,8 @@
 use super::input::HardenFirewallConfig;
-use super::plan::FirewallPlannedOperation;
+use super::plan::{FirewallOpKind, FirewallPlannedOperation};
 use super::report::{HardenFirewallReport, OperationResultOwned};
+use crate::features::operations::{detect_package_manager, install_invocation, run_ensure_package};
+use crate::runner::sudo::{SudoPolicy, run_with_env_io_sudo};
 use crate::runner::{CommandRunner, IoMode};
 
 pub fn execute_plan(
@@ -17,18 +19,31 @@ pub fn execute_plan(
                 id: op.id.clone(),
                 description: op.description.clone(),
                 status: "planned".to_string(),
-                detail: format!("{} {}", op.command, op.args.join(" ")),
+                detail: planned_detail(op),
             }
         } else {
-            match runner.run_with_env_io(
-                &op.command,
-                &op.args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-                &op.env
-                    .iter()
-                    .map(|(k, v)| (k.as_str(), v.as_str()))
-                    .collect::<Vec<_>>(),
-                io_mode,
-            ) {
+            let env_refs: Vec<(&str, &str)> = op
+                .env
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.as_str()))
+                .collect();
+
+            let attempt_result = match &op.kind {
+                FirewallOpKind::Shell => run_with_env_io_sudo(
+                    runner,
+                    &op.command,
+                    &op.args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                    &env_refs,
+                    io_mode,
+                    SudoPolicy::AlwaysSudo::<fn(&str) -> anyhow::Result<bool>>,
+                    &op.description,
+                ),
+                FirewallOpKind::EnsurePackage { package } => {
+                    run_ensure_package(runner, package, io_mode, &op.description)
+                }
+            };
+
+            match attempt_result {
                 Ok(output) => {
                     if output.status.success() {
                         OperationResultOwned {
@@ -67,7 +82,6 @@ pub fn execute_plan(
             }
         };
 
-        // Stop on failure (unless it's a warning)
         if result.status == "failed" {
             results.push(result);
             break;
@@ -78,6 +92,22 @@ pub fn execute_plan(
 
     HardenFirewallReport {
         operations: results,
+    }
+}
+
+fn planned_detail(op: &FirewallPlannedOperation) -> String {
+    match &op.kind {
+        FirewallOpKind::Shell => {
+            format!("sudo {} {}", op.command, op.args.join(" "))
+        }
+        FirewallOpKind::EnsurePackage { package } => {
+            if let Some(pm) = detect_package_manager() {
+                let (prog, argv) = install_invocation(pm, package);
+                format!("sudo {} {}", prog, argv.join(" "))
+            } else {
+                format!("sudo <package-manager> install -y {package}")
+            }
+        }
     }
 }
 
@@ -133,6 +163,7 @@ mod tests {
         let ops = vec![FirewallPlannedOperation {
             id: "test_op".to_string(),
             description: "Test operation".to_string(),
+            kind: FirewallOpKind::Shell,
             command: "echo".to_string(),
             args: vec!["hello".to_string()],
             env: vec![],

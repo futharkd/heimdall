@@ -87,17 +87,50 @@ pub fn build_plan(config: &HardenFirewallConfig) -> Result<Vec<FirewallPlannedOp
         failure_is_warning: false,
     });
 
-    // Add presets
+    // Add presets — rich rules do not support `ct`/conntrack; use `--direct` iptables rules instead.
     if config.allow_established {
         operations.push(FirewallPlannedOperation {
-            id: "allow_established".to_string(),
-            description: "Allow established/related connections".to_string(),
+            id: "allow_established_ipv4".to_string(),
+            description: "Allow established/related connections (IPv4, direct rule)".to_string(),
             kind: FirewallOpKind::Shell,
             command: "firewall-cmd".to_string(),
             args: vec![
                 "--permanent".to_string(),
-                "--add-rich-rule=rule family=\"ipv4\" ct state established,related accept"
-                    .to_string(),
+                "--direct".to_string(),
+                "--add-rule".to_string(),
+                "ipv4".to_string(),
+                "filter".to_string(),
+                "INPUT".to_string(),
+                "0".to_string(),
+                "-m".to_string(),
+                "conntrack".to_string(),
+                "--ctstate".to_string(),
+                "RELATED,ESTABLISHED".to_string(),
+                "-j".to_string(),
+                "ACCEPT".to_string(),
+            ],
+            env: vec![],
+            failure_is_warning: false,
+        });
+        operations.push(FirewallPlannedOperation {
+            id: "allow_established_ipv6".to_string(),
+            description: "Allow established/related connections (IPv6, direct rule)".to_string(),
+            kind: FirewallOpKind::Shell,
+            command: "firewall-cmd".to_string(),
+            args: vec![
+                "--permanent".to_string(),
+                "--direct".to_string(),
+                "--add-rule".to_string(),
+                "ipv6".to_string(),
+                "filter".to_string(),
+                "INPUT".to_string(),
+                "0".to_string(),
+                "-m".to_string(),
+                "conntrack".to_string(),
+                "--ctstate".to_string(),
+                "RELATED,ESTABLISHED".to_string(),
+                "-j".to_string(),
+                "ACCEPT".to_string(),
             ],
             env: vec![],
             failure_is_warning: false,

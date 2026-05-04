@@ -90,4 +90,5 @@ fn is_permission_error(stderr: &[u8]) -> bool {
     stderr_str.contains("Permission denied")
         || stderr_str.contains("EACCES")
         || stderr_str.contains("Operation not permitted")
+        || stderr_str.contains("Access denied")
 }

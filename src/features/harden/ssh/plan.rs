@@ -81,6 +81,22 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
             });
 
             operations.push(SshPlannedOperation {
+                id: "selinux_allow_ssh_port".to_string(),
+                description: format!("Label port {} as ssh_port_t in SELinux policy", new_port),
+                command: "sh".to_string(),
+                args: vec![
+                    "-c".to_string(),
+                    format!(
+                        "! command -v semanage >/dev/null 2>&1 \
+                         || semanage port -l | grep -q 'ssh_port_t.*tcp.*\\b{0}\\b' \
+                         || semanage port -a -t ssh_port_t -p tcp {0}",
+                        new_port
+                    ),
+                ],
+                failure_is_warning: false,
+            });
+
+            operations.push(SshPlannedOperation {
                 id: "reload_sshd".to_string(),
                 description: "Reload SSH service".to_string(),
                 command: "systemctl".to_string(),

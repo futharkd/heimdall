@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/futharkd/heimdall/compare/v0.5.1...v0.5.2) (2026-05-04)
+
+
+### Bug Fixes
+
+* **harden ssh:** allow new ssh port with selinux ([197c68a](https://github.com/futharkd/heimdall/commit/197c68a864e0527dc6327e8ef6f881854f4d26b1))
+
 ## [0.5.1](https://github.com/futharkd/heimdall/compare/v0.5.0...v0.5.1) (2026-05-04)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/futharkd/heimdall/compare/v0.4.0...v0.4.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* **harden ssh:** add more validation steps and fix pattern matching ([8655ce4](https://github.com/futharkd/heimdall/commit/8655ce4f2400e7903fdc2692eedb0ed427276825))
+
 ## [0.4.0](https://github.com/futharkd/heimdall/compare/v0.3.0...v0.4.0) (2026-05-04)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/futharkd/heimdall/compare/v0.6.1...v0.6.2) (2026-05-04)
+
+
+### Bug Fixes
+
+* **harden firewall:** use proper parameters for the established connections ([4a4bd11](https://github.com/futharkd/heimdall/commit/4a4bd118936cd97cda00d884fec2e52b68675580))
+
 ## [0.6.1](https://github.com/futharkd/heimdall/compare/v0.6.0...v0.6.1) (2026-05-04)
 
 

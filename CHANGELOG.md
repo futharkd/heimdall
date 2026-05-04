@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/futharkd/heimdall/compare/v0.6.0...v0.6.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* **harden firewall:** set-default-zone doesn't use permanent ([7706dda](https://github.com/futharkd/heimdall/commit/7706ddac2260c6f07b4dd6c194dd65eaabd19619))
+
 ## [0.6.0](https://github.com/futharkd/heimdall/compare/v0.5.2...v0.6.0) (2026-05-04)
 
 

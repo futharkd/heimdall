@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/futharkd/heimdall/compare/v0.5.2...v0.6.0) (2026-05-04)
+
+
+### Features
+
+* add operation kinds and ensure packages are installed ([9bc0a40](https://github.com/futharkd/heimdall/commit/9bc0a407b451f38a0b3d7b2b5769209a63c8d2a9))
+* **harden firewall:** ensure firewalld is installed ([3682a31](https://github.com/futharkd/heimdall/commit/3682a3171bed78a38305933672a3c6179c28cbf6))
+
 ## [0.5.2](https://github.com/futharkd/heimdall/compare/v0.5.1...v0.5.2) (2026-05-04)
 
 

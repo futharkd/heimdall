@@ -16,7 +16,7 @@ Commands:
 - `bootstrap flux` — Flux GitOps install + reconcile (SSH-based Git bootstrap, TTY-interactive key gen or BYOK)
 - `reset cluster` — reset k3s cluster to initial state
 - `update` — self-update binary from GitLab Generic Package Registry (x86_64 Linux only)
-- `harden ssh` — placeholder (not implemented)
+- `harden ssh` — change SSH port, disable root login, disable password auth; verifies sshd config + checks port listening
 
 Global flags: `--color auto|always|never` (before subcommand), `--output json` (per-command).
 
@@ -145,6 +145,17 @@ Test patterns:
 - Uses `curl` with optional `GITLAB_TOKEN` / `PRIVATE_TOKEN` (redacted in output)
 - Replaces running binary on disk (requires write access to exe directory)
 
+### harden ssh
+
+- Change SSH port: updates `sshd_config`, validates syntax with `sshd -t`, reloads service, verifies port listening
+- Disable root login: sets `PermitRootLogin no`
+- Disable password auth: sets `PasswordAuthentication no`
+- All operations require `--yes` or interactive confirmation (risky changes)
+- Sudo fallback: if operation fails with permission denied, prompts user to retry with sudo
+- Port listening verified via `ss` or `netstat` after port change
+- Backs up original `sshd_config` before modifications; validation fails if syntax broken
+- Flags: `--port` / `SSH_NEW_PORT`, `--disable-root-login` / `SSH_DISABLE_ROOT_LOGIN`, `--disable-password-auth` / `SSH_DISABLE_PASSWORD_AUTH`, `--force`, `--dry-run`, `--yes`, `--output json`
+
 ## Extending
 
 ### Adding a new bootstrap command
@@ -176,7 +187,7 @@ Test patterns:
 
 - **Feb 2025**: Flux bootstrap SSH key generation, deploy key write requirement, idempotent reconcile
 - **Apr 2025**: k3s idempotency probe (`command -v`), `--force` flag; Flux default branch auto-detect; reset cluster command added
-- **Latest**: Clippy warnings fixed (2024 edition)
+- **May 2025**: SSH hardening sudo fallback (retry with sudo on permission denied), SSH port listening verification after port change
 
 ## Quick command reference
 

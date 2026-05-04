@@ -5,7 +5,11 @@
       "Bash(cargo test *)",
       "Bash(cargo clippy *)",
       "Bash(cargo fmt *)",
-      "mcp__serena__write_memory"
+      "mcp__serena__write_memory",
+      "mcp__serena__initial_instructions",
+      "mcp__serena__find_symbol",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__replace_symbol_body"
     ]
   }
 }

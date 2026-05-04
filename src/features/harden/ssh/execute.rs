@@ -9,6 +9,8 @@ pub fn execute_plan(
     operations: &[SshPlannedOperation],
     io_mode: IoMode,
 ) -> HardenSshReport {
+    use inquire::Confirm;
+
     let mut results = Vec::new();
 
     for op in operations {
@@ -20,12 +22,30 @@ pub fn execute_plan(
                 detail: format!("{} {}", op.command, op.args.join(" ")),
             }
         } else {
-            match runner.run_with_env_io(
+            let mut attempt_result = runner.run_with_env_io(
                 &op.command,
                 &op.args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
                 &[],
                 io_mode,
-            ) {
+            );
+
+            #[allow(clippy::collapsible_if)]
+            if let Ok(output) = &attempt_result {
+                if !output.status.success() && is_permission_error(&output.stderr) {
+                    let prompt = format!(
+                        "Operation '{}' requires elevated privileges. Retry with sudo?",
+                        op.description
+                    );
+                    if let Ok(true) = Confirm::new(&prompt).prompt() {
+                        let mut sudo_args = vec![op.command.as_str()];
+                        sudo_args.extend(op.args.iter().map(|s| s.as_str()));
+
+                        attempt_result = runner.run_with_env_io("sudo", &sudo_args, &[], io_mode);
+                    }
+                }
+            }
+
+            match attempt_result {
                 Ok(output) => {
                     if output.status.success() {
                         OperationResultOwned {
@@ -63,4 +83,11 @@ pub fn execute_plan(
     HardenSshReport {
         operations: results,
     }
+}
+
+fn is_permission_error(stderr: &[u8]) -> bool {
+    let stderr_str = String::from_utf8_lossy(stderr);
+    stderr_str.contains("Permission denied")
+        || stderr_str.contains("EACCES")
+        || stderr_str.contains("Operation not permitted")
 }

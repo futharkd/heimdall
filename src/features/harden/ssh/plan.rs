@@ -57,6 +57,17 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
                 args: vec!["reload".to_string(), "sshd".to_string()],
                 failure_is_warning: false,
             });
+
+            operations.push(SshPlannedOperation {
+                id: "verify_ssh_listening".to_string(),
+                description: format!("Verify SSH listening on port {}", new_port),
+                command: "sh".to_string(),
+                args: vec![
+                    "-c".to_string(),
+                    format!("ss -tlnp 2>/dev/null | grep -q :{} || netstat -tlnp 2>/dev/null | grep -q :{}", new_port, new_port),
+                ],
+                failure_is_warning: false,
+            });
         }
     }
 

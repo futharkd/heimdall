@@ -84,7 +84,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<SshPlannedOperation>> 
                 id: "reload_sshd".to_string(),
                 description: "Reload SSH service".to_string(),
                 command: "systemctl".to_string(),
-                args: vec!["reload".to_string(), "sshd".to_string()],
+                args: vec!["reload-or-restart".to_string(), "sshd".to_string()],
                 failure_is_warning: false,
             });
 

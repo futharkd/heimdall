@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/futharkd/heimdall/compare/v1.0.0...v1.0.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **core:** centralize privilege elevation policy ([6d4e1b4](https://github.com/futharkd/heimdall/commit/6d4e1b42102e2b4c96c924bec7d9ca7bf0977427))
+
 ## [1.0.0](https://github.com/futharkd/heimdall/compare/v0.8.8...v1.0.0) (2026-05-05)
 
 

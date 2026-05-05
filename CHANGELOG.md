@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/futharkd/heimdall/compare/v0.8.0...v0.8.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **infisical:** use sudo for writing files to privileged directories ([5a5ffe9](https://github.com/futharkd/heimdall/commit/5a5ffe9af03a02b7946fda1280b0c83cdcb1f722))
+
 ## [0.8.0](https://github.com/futharkd/heimdall/compare/v0.7.0...v0.8.0) (2026-05-05)
 
 

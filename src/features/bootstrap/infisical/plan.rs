@@ -98,6 +98,10 @@ pub(crate) fn universal_auth_token(
     }
 }
 
+fn should_show_discovery_details() -> bool {
+    std::io::stdin().is_terminal()
+}
+
 pub(crate) fn discover_folders_recursive(
     address: &str,
     project_id: &str,
@@ -128,7 +132,18 @@ fn discover_folders_at(
             depth = depth,
             "folder discovery reached max depth limit"
         );
+        if should_show_discovery_details() {
+            eprintln!("[discovery] Reached max depth limit at: {}", infisical_path);
+        }
         return Vec::new();
+    }
+
+    if should_show_discovery_details() {
+        eprintln!("[discovery] Querying path: {}", infisical_path);
+        eprintln!(
+            "[discovery] Command: infisical secrets folders get --domain {} --projectId {} --path {} --token ****",
+            address, project_id, infisical_path
+        );
     }
 
     let output = match Command::new("infisical")
@@ -157,6 +172,9 @@ fn discover_folders_at(
                 depth = depth,
                 "infisical folders discovery command execution failed"
             );
+            if should_show_discovery_details() {
+                eprintln!("[discovery] ❌ Command execution failed: {}", e);
+            }
             return Vec::new();
         }
     };
@@ -171,10 +189,18 @@ fn discover_folders_at(
             depth = depth,
             "infisical folders command returned non-zero exit code"
         );
+        if should_show_discovery_details() {
+            eprintln!("[discovery] ❌ Exit code: {:?}", exit_code);
+            eprintln!("[discovery] ❌ stderr: {}", stderr);
+        }
         return Vec::new();
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    if should_show_discovery_details() {
+        eprintln!("[discovery] ✓ Response stdout: {}", stdout);
+    }
+
     let child_names = match parse_folder_names(&stdout) {
         Ok(names) => {
             debug!(
@@ -183,6 +209,16 @@ fn discover_folders_at(
                 depth = depth,
                 "successfully discovered folders"
             );
+            if should_show_discovery_details() {
+                eprintln!(
+                    "[discovery] ✓ Parsed {} folders from: {}",
+                    names.len(),
+                    infisical_path
+                );
+                for name in &names {
+                    eprintln!("[discovery]   - {}", name);
+                }
+            }
             names
         }
         Err(e) => {
@@ -192,6 +228,9 @@ fn discover_folders_at(
                 depth = depth,
                 "failed to parse folder list JSON response"
             );
+            if should_show_discovery_details() {
+                eprintln!("[discovery] ❌ Failed to parse JSON: {}", e);
+            }
             return Vec::new();
         }
     };
@@ -240,7 +279,9 @@ pub fn resolve_plan_artifacts(config: &BootstrapInfisicalConfig) -> Result<Infis
                 );
                 if folders.is_empty() {
                     Err(anyhow::anyhow!(
-                        "no folders discovered at /{} (may be empty)",
+                        "no folders discovered at /{}\n\
+                         Check if the node path exists and has subfolders.\n\
+                         You can manually specify folders with --folder flag.",
                         config.node_name
                     ))
                 } else {

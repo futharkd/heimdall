@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/futharkd/heimdall/compare/v0.8.1...v0.8.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* **infisical:** create parent directories with sudo before writing privileged files ([279415b](https://github.com/futharkd/heimdall/commit/279415bf938e0b59d24e5d37393db3bf6e35cb78))
+
 ## [0.8.1](https://github.com/futharkd/heimdall/compare/v0.8.0...v0.8.1) (2026-05-05)
 
 

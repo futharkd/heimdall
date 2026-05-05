@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::fs;
 use std::path::PathBuf;
 
 use crate::cli::{InfisicalServiceAction, ServiceInfisicalCommand};
@@ -8,6 +7,9 @@ use crate::features::service::{
     ServiceActionKind, ServiceActionPlan, ServiceBackend, ServiceKind, execute_and_print,
     plan_service_actions,
 };
+use crate::runner::IoMode;
+use crate::runner::LocalRunner;
+use crate::runner::read::read_file_with_escalation;
 use crate::runtime::ExitStatus;
 
 pub fn run(opts: ServiceInfisicalCommand, global: &crate::cli::GlobalOpts) -> Result<ExitStatus> {
@@ -99,13 +101,16 @@ fn run_sync(opts: ServiceInfisicalCommand, global: &crate::cli::GlobalOpts) -> R
         .ok_or_else(|| anyhow::anyhow!("environment not found in saved state"))?;
 
     let creds_dir = format!("{}/.infisical", secrets_dir);
-    let client_id_path = format!("{}/client-id", creds_dir);
-    let client_secret_path = format!("{}/client-secret", creds_dir);
+    let client_id_path = PathBuf::from(format!("{}/client-id", creds_dir));
+    let client_secret_path = PathBuf::from(format!("{}/client-secret", creds_dir));
 
-    let client_id = fs::read_to_string(&client_id_path)
-        .map_err(|e| anyhow::anyhow!("failed to read {}: {}", client_id_path, e))?;
-    let client_secret = fs::read_to_string(&client_secret_path)
-        .map_err(|e| anyhow::anyhow!("failed to read {}: {}", client_secret_path, e))?;
+    let runner = LocalRunner;
+    let client_id = read_file_with_escalation(&runner, &client_id_path, IoMode::Buffered)
+        .map_err(|e| anyhow::anyhow!("failed to read {}: {}", client_id_path.display(), e))?;
+    let client_secret = read_file_with_escalation(&runner, &client_secret_path, IoMode::Buffered)
+        .map_err(|e| {
+        anyhow::anyhow!("failed to read {}: {}", client_secret_path.display(), e)
+    })?;
 
     let token = crate::features::bootstrap::infisical::plan::universal_auth_token(
         client_id.trim(),
@@ -189,7 +194,6 @@ fn run_sync(opts: ServiceInfisicalCommand, global: &crate::cli::GlobalOpts) -> R
         verify: None,
     });
 
-    let runner = crate::runner::LocalRunner;
     let report = crate::runner::executor::execute_plan(
         &ops,
         &runner,

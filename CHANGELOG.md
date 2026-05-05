@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/futharkd/heimdall/compare/v0.7.0...v0.8.0) (2026-05-05)
+
+
+### Features
+
+* fully complete rework for global modular operations ([5d753b9](https://github.com/futharkd/heimdall/commit/5d753b9b104bf53bd80ef70ed70a2be560e44d92))
+
 ## [0.7.0](https://github.com/futharkd/heimdall/compare/v0.6.2...v0.7.0) (2026-05-05)
 
 

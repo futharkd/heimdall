@@ -1,7 +1,7 @@
 use anyhow::Result;
 
-use crate::cli::{BootstrapAction, Command, HardenAction, ResetAction};
-use crate::features::{bootstrap, doctor, harden, reset, update};
+use crate::cli::{BootstrapAction, Command, HardenAction, ResetAction, ServiceTarget};
+use crate::features::{bootstrap, doctor, harden, reset, service, update};
 use crate::runtime::ExitStatus;
 
 pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
@@ -26,5 +26,10 @@ pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
             ResetAction::Cluster(opts) => reset::cluster::command::run(opts, &cli.global),
         },
         Command::Update(opts) => update::command::run(opts, &cli.global),
+        Command::Service(cmd) => match cmd.target {
+            ServiceTarget::Komodo(opts) => service::komodo::run(opts, &cli.global),
+            ServiceTarget::Infisical(opts) => service::infisical::run(opts, &cli.global),
+            ServiceTarget::Netbird(opts) => service::netbird::run(opts, &cli.global),
+        },
     }
 }

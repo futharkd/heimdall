@@ -74,6 +74,103 @@ pub enum Command {
     Reset(ResetCommand),
     /// Workflow: replace the running heimdall binary with a newer version from the package registry.
     Update(UpdateCommand),
+    /// Workflow: manage services lifecycle (status/start/stop/restart) for Komodo, Infisical, and others.
+    Service(ServiceCommand),
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ServiceAction {
+    /// Show service status.
+    Status,
+    /// Start the service.
+    Start,
+    /// Stop the service.
+    Stop,
+    /// Restart the service.
+    Restart,
+}
+
+impl From<ServiceAction> for crate::features::service::ServiceActionKind {
+    fn from(value: ServiceAction) -> Self {
+        match value {
+            ServiceAction::Status => crate::features::service::ServiceActionKind::Status,
+            ServiceAction::Start => crate::features::service::ServiceActionKind::Start,
+            ServiceAction::Stop => crate::features::service::ServiceActionKind::Stop,
+            ServiceAction::Restart => crate::features::service::ServiceActionKind::Restart,
+        }
+    }
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ServiceKomodoCommand {
+    #[arg(value_enum)]
+    pub action: ServiceAction,
+    /// Deployment mode to target: core, periphery, or all.
+    #[arg(long, value_enum, default_value_t = KomodoServiceMode::All)]
+    pub mode: KomodoServiceMode,
+    /// Directory containing docker-compose.yml and compose.env.
+    #[arg(long)]
+    pub compose_dir: Option<String>,
+    /// Docker Compose project name (default: komodo).
+    #[arg(long)]
+    pub project_name: Option<String>,
+    /// Print planned operations without executing them.
+    #[arg(long)]
+    pub dry_run: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum KomodoServiceMode {
+    Core,
+    Periphery,
+    #[default]
+    All,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ServiceInfisicalCommand {
+    #[arg(value_enum)]
+    pub action: ServiceAction,
+    /// Systemd unit name to manage.
+    #[arg(long, default_value = "infisical-agent.service")]
+    pub unit_name: String,
+    /// Print planned operations without executing them.
+    #[arg(long)]
+    pub dry_run: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ServiceNetbirdCommand {
+    #[arg(value_enum)]
+    pub action: ServiceAction,
+    /// Systemd unit name to manage.
+    #[arg(long, default_value = "netbird")]
+    pub unit_name: String,
+    /// Print planned operations without executing them.
+    #[arg(long)]
+    pub dry_run: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ServiceCommand {
+    #[command(subcommand)]
+    pub target: ServiceTarget,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ServiceTarget {
+    /// Manage Komodo services via Docker Compose or systemd.
+    Komodo(ServiceKomodoCommand),
+    /// Manage Infisical agent via systemd.
+    Infisical(ServiceInfisicalCommand),
+    /// Manage NetBird service via systemd.
+    Netbird(ServiceNetbirdCommand),
 }
 
 #[derive(Debug, Subcommand)]

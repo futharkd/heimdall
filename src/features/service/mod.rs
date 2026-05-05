@@ -84,6 +84,7 @@ pub fn execute_and_print(
     output: crate::cli::OutputFormat,
     dry_run: bool,
     global: &crate::cli::GlobalOpts,
+    show_stdout: bool,
 ) -> anyhow::Result<ExitStatus> {
     let runner = LocalRunner;
     let live_execution = matches!(output, crate::cli::OutputFormat::Human) && !dry_run;
@@ -96,6 +97,7 @@ pub fn execute_and_print(
             PrivilegeContext::ELEVATED_OPS,
             global.debug,
             &style,
+            show_stdout,
         )
     } else {
         let io_mode = if live_execution {

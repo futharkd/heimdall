@@ -50,5 +50,13 @@ pub fn run(opts: ServiceKomodoCommand, global: &crate::cli::GlobalOpts) -> Resul
     };
 
     let ops = plan_service_actions(plan);
-    execute_and_print("komodo", ops, opts.output, opts.dry_run, global)
+    let show_stdout = matches!(action, ServiceActionKind::Status);
+    execute_and_print(
+        "komodo",
+        ops,
+        opts.output,
+        opts.dry_run,
+        global,
+        show_stdout,
+    )
 }

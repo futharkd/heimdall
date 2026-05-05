@@ -21,6 +21,7 @@ pub fn execute_plan_interactive(
     privilege: PrivilegeContext,
     debug: bool,
     style: &Style,
+    show_stdout: bool,
 ) -> Vec<OperationResult> {
     let mut results = Vec::new();
     let tty = std::io::stdout().is_terminal();
@@ -127,7 +128,7 @@ pub fn execute_plan_interactive(
                     }
                 }
             }
-        } else if debug
+        } else if (debug || show_stdout)
             && status == OperationStatus::Succeeded
             && let Ok(output) = &exec_result
         {

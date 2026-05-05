@@ -36,5 +36,13 @@ pub fn run(opts: ServiceInfisicalCommand, global: &crate::cli::GlobalOpts) -> Re
         });
     }
 
-    execute_and_print("infisical", ops, opts.output, opts.dry_run, global)
+    let show_stdout = matches!(action, ServiceActionKind::Status);
+    execute_and_print(
+        "infisical",
+        ops,
+        opts.output,
+        opts.dry_run,
+        global,
+        show_stdout,
+    )
 }

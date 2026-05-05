@@ -17,5 +17,13 @@ pub fn run(opts: ServiceNetbirdCommand, global: &crate::cli::GlobalOpts) -> Resu
         },
     };
     let ops = plan_service_actions(plan);
-    execute_and_print("netbird", ops, opts.output, opts.dry_run, global)
+    let show_stdout = matches!(action, ServiceActionKind::Status);
+    execute_and_print(
+        "netbird",
+        ops,
+        opts.output,
+        opts.dry_run,
+        global,
+        show_stdout,
+    )
 }

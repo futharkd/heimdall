@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/futharkd/heimdall/compare/v1.4.0...v1.4.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** allow selecting environment ([c45fbb1](https://github.com/futharkd/heimdall/commit/c45fbb16b77232f0ae9fdd02fd744e9603b3a640))
+
 ## [1.4.0](https://github.com/futharkd/heimdall/compare/v1.3.2...v1.4.0) (2026-05-05)
 
 

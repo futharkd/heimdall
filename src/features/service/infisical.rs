@@ -120,7 +120,11 @@ fn run_sync(opts: ServiceInfisicalCommand, global: &crate::cli::GlobalOpts) -> R
 
     let discovered_folders =
         crate::features::bootstrap::infisical::plan::discover_folders_recursive(
-            address, project_id, &token, node_name,
+            address,
+            project_id,
+            &token,
+            node_name,
+            environment,
         );
 
     // SAFETY: Never overwrite real folders with empty discovery result

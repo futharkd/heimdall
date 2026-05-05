@@ -3,6 +3,7 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct BootstrapInfisicalReport {
+    pub environment: Option<String>,
     pub operations: Vec<OperationResult>,
 }
 

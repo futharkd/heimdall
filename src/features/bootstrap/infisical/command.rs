@@ -50,8 +50,13 @@ pub fn run(opts: BootstrapInfisicalCommand, global: &GlobalOpts) -> Result<ExitS
 
     // Execute plan
     let runner = LocalRunner;
-    let report =
-        execute::execute_plan(&runner, PrivilegeContext::ELEVATED_OPS, operations, io_mode);
+    let report = execute::execute_plan(
+        &runner,
+        PrivilegeContext::ELEVATED_OPS,
+        operations,
+        io_mode,
+        Some(config.environment.clone()),
+    );
 
     // Format output
     let style = Style::for_human(global.color);

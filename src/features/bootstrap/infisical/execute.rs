@@ -10,6 +10,7 @@ pub fn execute_plan(
     privilege: PrivilegeContext,
     operations: Vec<InfisicalPlannedOperation>,
     io_mode: IoMode,
+    environment: Option<String>,
 ) -> BootstrapInfisicalReport {
     use crate::runner::write::write_file_with_escalation;
 
@@ -103,6 +104,7 @@ pub fn execute_plan(
     }
 
     BootstrapInfisicalReport {
+        environment,
         operations: results,
     }
 }

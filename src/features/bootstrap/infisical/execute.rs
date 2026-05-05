@@ -125,28 +125,42 @@ pub fn execute_plan(
                             let _ = fs::remove_file(&temp_path);
                             OperationStatus::Failed
                         } else {
-                            // Copy temp file to target with sudo
-                            let copy_args = vec!["cp", &temp_path, &path_str];
+                            // Create parent directory with sudo first
+                            let parent_str = path
+                                .parent()
+                                .map(|p| p.display().to_string())
+                                .unwrap_or_else(|| "/".to_string());
+                            
+                            let mkdir_args = vec!["mkdir", "-p", &parent_str];
+                            let mkdir_result = runner.run_with_env_io("sudo", &mkdir_args, &[], io_mode);
 
-                            match runner.run_with_env_io("sudo", &copy_args, &[], io_mode) {
-                                Ok(output) if output.status.success() => {
-                                    // Set final permissions with sudo
-                                    let mode_str = format!("{:o}", mode);
-                                    let chmod_args = vec!["chmod", &mode_str, &path_str];
-                                    let chmod_status =
-                                        runner.run_with_env_io("sudo", &chmod_args, &[], io_mode);
-                                    let _ = fs::remove_file(&temp_path);
+                            if mkdir_result.is_err() || !mkdir_result.as_ref().map(|o| o.status.success()).unwrap_or(false) {
+                                let _ = fs::remove_file(&temp_path);
+                                OperationStatus::Failed
+                            } else {
+                                // Copy temp file to target with sudo
+                                let copy_args = vec!["cp", &temp_path, &path_str];
 
-                                    match chmod_status {
-                                        Ok(output) if output.status.success() => {
-                                            OperationStatus::Succeeded
+                                match runner.run_with_env_io("sudo", &copy_args, &[], io_mode) {
+                                    Ok(output) if output.status.success() => {
+                                        // Set final permissions with sudo
+                                        let mode_str = format!("{:o}", mode);
+                                        let chmod_args = vec!["chmod", &mode_str, &path_str];
+                                        let chmod_status =
+                                            runner.run_with_env_io("sudo", &chmod_args, &[], io_mode);
+                                        let _ = fs::remove_file(&temp_path);
+
+                                        match chmod_status {
+                                            Ok(output) if output.status.success() => {
+                                                OperationStatus::Succeeded
+                                            }
+                                            _ => OperationStatus::Failed,
                                         }
-                                        _ => OperationStatus::Failed,
                                     }
-                                }
-                                _ => {
-                                    let _ = fs::remove_file(&temp_path);
-                                    OperationStatus::Failed
+                                    _ => {
+                                        let _ = fs::remove_file(&temp_path);
+                                        OperationStatus::Failed
+                                    }
                                 }
                             }
                         }

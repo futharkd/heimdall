@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/futharkd/heimdall/compare/v1.1.0...v1.2.0) (2026-05-05)
+
+
+### Features
+
+* move formatted output to core feature ([3befc45](https://github.com/futharkd/heimdall/commit/3befc457478c2d18eceee0c238386a8c0e51c18b))
+
 ## [1.1.0](https://github.com/futharkd/heimdall/compare/v1.0.2...v1.1.0) (2026-05-05)
 
 

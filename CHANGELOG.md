@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/futharkd/heimdall/compare/v1.3.0...v1.3.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** use priviledge escalation for sync service ([1b9ab66](https://github.com/futharkd/heimdall/commit/1b9ab669f30cbcea77e4e3096107860b0a6b8764))
+
 ## [1.3.0](https://github.com/futharkd/heimdall/compare/v1.2.2...v1.3.0) (2026-05-05)
 
 

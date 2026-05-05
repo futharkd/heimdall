@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/futharkd/heimdall/compare/v0.8.8...v1.0.0) (2026-05-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** `heimdall verify doctor` is removed; use `heimdall doctor`.
+
+### Bug Fixes
+
+* **bootstrap infisical:** restart service instead of only starting (in case already running) ([94af442](https://github.com/futharkd/heimdall/commit/94af4420d60a68ecd5b513403b393f7671b95b30))
+
+
+### Code Refactoring
+
+* **core:** centralize doctor and execution contracts ([911bfc2](https://github.com/futharkd/heimdall/commit/911bfc25f01de732b79055ee57b33f64d4d71d1a))
+
 ## [0.8.8](https://github.com/futharkd/heimdall/compare/v0.8.7...v0.8.8) (2026-05-05)
 
 

@@ -1,6 +1,6 @@
 [package]
 name = "heimdall"
-version = "0.8.8"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.94"
 license = "MIT"

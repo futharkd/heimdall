@@ -1,5 +1,5 @@
 use crate::core::operation::PlannedOperation;
-use crate::runner::{executor::execute_plan as shared_execute, CommandRunner, IoMode};
+use crate::runner::{CommandRunner, IoMode, executor::execute_plan as shared_execute};
 
 use super::input::ResetClusterConfig;
 use super::report::ResetClusterReport;
@@ -11,7 +11,9 @@ pub fn execute_plan(
     io_mode: IoMode,
 ) -> ResetClusterReport {
     let results = shared_execute(operations, runner, config.dry_run, false, io_mode);
-    ResetClusterReport { operations: results }
+    ResetClusterReport {
+        operations: results,
+    }
 }
 
 #[cfg(test)]
@@ -61,7 +63,7 @@ mod tests {
         let cfg = ResetClusterConfig { dry_run: true };
         let plan = vec![PlannedOperation {
             id: "x",
-            description: "x",
+            description: "x".to_string(),
             kind: OperationKind::Shell {
                 command: "sudo".to_string(),
                 args: vec!["rm".to_string()],

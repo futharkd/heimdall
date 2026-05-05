@@ -40,7 +40,7 @@ pub fn execute_update(
             remote_digest: None,
             operations: vec![OperationResult {
                 id: "update",
-                description: "Run heimdall update",
+                description: "Run heimdall update".to_string(),
                 status: OperationStatus::Failed,
                 detail: err.to_string(),
             }],
@@ -75,7 +75,8 @@ fn run_update(
         Ok(()) => {
             operations.push(OperationResult {
                 id: "fetch_remote_checksum",
-                description: "Download published .sha256 for the selected package channel",
+                description: "Download published .sha256 for the selected package channel"
+                    .to_string(),
                 status: OperationStatus::Succeeded,
                 detail: format_curl_command("curl", &curl_args),
             });
@@ -83,7 +84,8 @@ fn run_update(
         Err(detail) => {
             operations.push(OperationResult {
                 id: "fetch_remote_checksum",
-                description: "Download published .sha256 for the selected package channel",
+                description: "Download published .sha256 for the selected package channel"
+                    .to_string(),
                 status: OperationStatus::Failed,
                 detail,
             });
@@ -106,7 +108,7 @@ fn run_update(
 
     operations.push(OperationResult {
         id: "evaluate_update",
-        description: "Compare remote digest to the running binary",
+        description: "Compare remote digest to the running binary".to_string(),
         status: OperationStatus::Succeeded,
         detail: evaluate_detail(digests_match, config.force, &local_hex, &remote_hex),
     });
@@ -114,19 +116,19 @@ fn run_update(
     if !needs_binary {
         operations.push(OperationResult {
             id: "download_binary",
-            description: "Download published Linux amd64 binary",
+            description: "Download published Linux amd64 binary".to_string(),
             status: OperationStatus::Skipped,
             detail: "already up to date (remote digest matches running binary)".to_string(),
         });
         operations.push(OperationResult {
             id: "verify_download",
-            description: "Verify downloaded bytes against the published digest",
+            description: "Verify downloaded bytes against the published digest".to_string(),
             status: OperationStatus::Skipped,
             detail: "skipped (no download)".to_string(),
         });
         operations.push(OperationResult {
             id: "replace_binary",
-            description: "Atomically replace the running binary",
+            description: "Atomically replace the running binary".to_string(),
             status: OperationStatus::Skipped,
             detail: "skipped (no download)".to_string(),
         });
@@ -146,19 +148,19 @@ fn run_update(
         );
         operations.push(OperationResult {
             id: "download_binary",
-            description: "Download published Linux amd64 binary",
+            description: "Download published Linux amd64 binary".to_string(),
             status: OperationStatus::Planned,
             detail: format!("dry-run: {}", format_curl_command("curl", &binary_args)),
         });
         operations.push(OperationResult {
             id: "verify_download",
-            description: "Verify downloaded bytes against the published digest",
+            description: "Verify downloaded bytes against the published digest".to_string(),
             status: OperationStatus::Planned,
             detail: format!("dry-run: sha256(download) == {remote_hex}"),
         });
         operations.push(OperationResult {
             id: "replace_binary",
-            description: "Atomically replace the running binary",
+            description: "Atomically replace the running binary".to_string(),
             status: OperationStatus::Planned,
             detail: format!(
                 "dry-run: rename {} -> {}",
@@ -179,7 +181,7 @@ fn run_update(
         if !approved {
             operations.push(OperationResult {
                 id: "confirm_replace",
-                description: "Confirm replacing the running binary",
+                description: "Confirm replacing the running binary".to_string(),
                 status: OperationStatus::Failed,
                 detail: "aborted: not confirmed".to_string(),
             });
@@ -192,7 +194,7 @@ fn run_update(
         }
         operations.push(OperationResult {
             id: "confirm_replace",
-            description: "Confirm replacing the running binary",
+            description: "Confirm replacing the running binary".to_string(),
             status: OperationStatus::Succeeded,
             detail: "confirmed".to_string(),
         });
@@ -208,7 +210,7 @@ fn run_update(
         Ok(()) => {
             operations.push(OperationResult {
                 id: "download_binary",
-                description: "Download published Linux amd64 binary",
+                description: "Download published Linux amd64 binary".to_string(),
                 status: OperationStatus::Succeeded,
                 detail: format_curl_command("curl", &binary_args),
             });
@@ -216,7 +218,7 @@ fn run_update(
         Err(detail) => {
             operations.push(OperationResult {
                 id: "download_binary",
-                description: "Download published Linux amd64 binary",
+                description: "Download published Linux amd64 binary".to_string(),
                 status: OperationStatus::Failed,
                 detail,
             });
@@ -237,7 +239,7 @@ fn run_update(
         let _ = fs::remove_file(&tmp_binary);
         operations.push(OperationResult {
             id: "verify_download",
-            description: "Verify downloaded bytes against the published digest",
+            description: "Verify downloaded bytes against the published digest".to_string(),
             status: OperationStatus::Failed,
             detail: format!(
                 "checksum mismatch: expected {remote_hex}, got {}",
@@ -254,7 +256,7 @@ fn run_update(
 
     operations.push(OperationResult {
         id: "verify_download",
-        description: "Verify downloaded bytes against the published digest",
+        description: "Verify downloaded bytes against the published digest".to_string(),
         status: OperationStatus::Succeeded,
         detail: format!("sha256 matches remote digest ({remote_hex})"),
     });
@@ -265,7 +267,7 @@ fn run_update(
         Ok(()) => {
             operations.push(OperationResult {
                 id: "replace_binary",
-                description: "Atomically replace the running binary",
+                description: "Atomically replace the running binary".to_string(),
                 status: OperationStatus::Succeeded,
                 detail: format!("replaced {}", config.exe_path.display()),
             });
@@ -274,7 +276,7 @@ fn run_update(
             let _ = fs::remove_file(&tmp_binary);
             operations.push(OperationResult {
                 id: "replace_binary",
-                description: "Atomically replace the running binary",
+                description: "Atomically replace the running binary".to_string(),
                 status: OperationStatus::Failed,
                 detail: format!(
                     "rename failed (try sudo or install to a writable location): {err} (target {})",

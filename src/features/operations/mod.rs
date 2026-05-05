@@ -2,4 +2,4 @@
 
 pub mod package;
 
-pub use package::{detect_package_manager, install_invocation, run_ensure_package};
+pub use package::run_ensure_package;

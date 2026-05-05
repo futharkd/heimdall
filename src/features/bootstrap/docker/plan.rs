@@ -1,84 +1,93 @@
 use std::path::PathBuf;
 
+use crate::core::operation::{OperationKind, PlannedOperation};
 use crate::features::bootstrap::docker::generate;
 use crate::features::bootstrap::docker::input::DockerConfig;
 
-#[derive(Debug, Clone)]
-pub enum DockerPlannedOperation {
-    Subprocess {
-        id: &'static str,
-        description: &'static str,
-        command: String,
-        args: Vec<String>,
-        env: Vec<(String, String)>,
-        failure_is_warning: bool,
-    },
-    WriteFile {
-        id: &'static str,
-        description: &'static str,
-        path: PathBuf,
-        content: String,
-    },
-}
-
-pub fn build_plan(config: &DockerConfig) -> anyhow::Result<Vec<DockerPlannedOperation>> {
+pub fn build_plan(config: &DockerConfig) -> anyhow::Result<Vec<PlannedOperation>> {
     let mut operations = Vec::new();
 
     if !config.skip_install {
         let (command, args) = build_install_command(&config.install_script_url);
-        operations.push(DockerPlannedOperation::Subprocess {
+        operations.push(PlannedOperation {
             id: "install_docker",
-            description: "Download and run Docker install script",
-            command,
-            args,
-            env: vec![],
+            description: "Download and run Docker install script".to_string(),
+            kind: OperationKind::Shell {
+                command,
+                args,
+                env: vec![],
+                stdin_input: None,
+            },
+            requires_confirmation: false,
             failure_is_warning: false,
+            verify: None,
         });
     }
 
-    operations.push(DockerPlannedOperation::Subprocess {
+    operations.push(PlannedOperation {
         id: "enable_docker_service",
-        description: "Enable and start docker systemd service",
-        command: "systemctl".to_string(),
-        args: vec![
-            "enable".to_string(),
-            "--now".to_string(),
-            "docker".to_string(),
-        ],
-        env: vec![],
+        description: "Enable and start docker systemd service".to_string(),
+        kind: OperationKind::Shell {
+            command: "systemctl".to_string(),
+            args: vec![
+                "enable".to_string(),
+                "--now".to_string(),
+                "docker".to_string(),
+            ],
+            env: vec![],
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
+        verify: None,
     });
 
     if config.log_driver.is_some() || !config.registry_mirrors.is_empty() {
         let daemon_json =
             generate::generate_daemon_json(config.log_driver.as_deref(), &config.registry_mirrors)?;
 
-        operations.push(DockerPlannedOperation::WriteFile {
+        operations.push(PlannedOperation {
             id: "write_daemon_json",
-            description: "Write /etc/docker/daemon.json",
-            path: PathBuf::from("/etc/docker/daemon.json"),
-            content: daemon_json,
+            description: "Write /etc/docker/daemon.json".to_string(),
+            kind: OperationKind::WriteFile {
+                path: PathBuf::from("/etc/docker/daemon.json"),
+                content: daemon_json,
+                mode: None,
+            },
+            requires_confirmation: false,
+            failure_is_warning: false,
+            verify: None,
         });
     }
 
     if let Some(ref user) = config.add_user {
-        operations.push(DockerPlannedOperation::Subprocess {
+        operations.push(PlannedOperation {
             id: "add_to_docker_group",
-            description: "Add user to docker group",
-            command: "usermod".to_string(),
-            args: vec!["-aG".to_string(), "docker".to_string(), user.clone()],
-            env: vec![],
+            description: "Add user to docker group".to_string(),
+            kind: OperationKind::Shell {
+                command: "usermod".to_string(),
+                args: vec!["-aG".to_string(), "docker".to_string(), user.clone()],
+                env: vec![],
+                stdin_input: None,
+            },
+            requires_confirmation: false,
             failure_is_warning: false,
+            verify: None,
         });
     }
 
-    operations.push(DockerPlannedOperation::Subprocess {
+    operations.push(PlannedOperation {
         id: "verify_docker",
-        description: "Verify Docker daemon responds",
-        command: "docker".to_string(),
-        args: vec!["info".to_string()],
-        env: vec![],
+        description: "Verify Docker daemon responds".to_string(),
+        kind: OperationKind::Shell {
+            command: "docker".to_string(),
+            args: vec!["info".to_string()],
+            env: vec![],
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: true,
+        verify: None,
     });
 
     Ok(operations)
@@ -108,13 +117,7 @@ mod tests {
         };
 
         let ops = build_plan(&config).unwrap();
-        assert!(!ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::Subprocess {
-                id: "install_docker",
-                ..
-            }
-        )));
+        assert!(!ops.iter().any(|op| op.id == "install_docker"));
     }
 
     #[test]
@@ -130,13 +133,7 @@ mod tests {
         };
 
         let ops = build_plan(&config).unwrap();
-        assert!(ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::Subprocess {
-                id: "install_docker",
-                ..
-            }
-        )));
+        assert!(ops.iter().any(|op| op.id == "install_docker"));
     }
 
     #[test]
@@ -152,13 +149,7 @@ mod tests {
         };
 
         let ops = build_plan(&config).unwrap();
-        assert!(!ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::WriteFile {
-                id: "write_daemon_json",
-                ..
-            }
-        )));
+        assert!(!ops.iter().any(|op| op.id == "write_daemon_json"));
     }
 
     #[test]
@@ -174,13 +165,7 @@ mod tests {
         };
 
         let ops = build_plan(&config).unwrap();
-        assert!(ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::WriteFile {
-                id: "write_daemon_json",
-                ..
-            }
-        )));
+        assert!(ops.iter().any(|op| op.id == "write_daemon_json"));
     }
 
     #[test]
@@ -196,13 +181,7 @@ mod tests {
         };
 
         let ops = build_plan(&config).unwrap();
-        assert!(ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::WriteFile {
-                id: "write_daemon_json",
-                ..
-            }
-        )));
+        assert!(ops.iter().any(|op| op.id == "write_daemon_json"));
     }
 
     #[test]
@@ -218,13 +197,7 @@ mod tests {
         };
 
         let ops = build_plan(&config).unwrap();
-        assert!(!ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::Subprocess {
-                id: "add_to_docker_group",
-                ..
-            }
-        )));
+        assert!(!ops.iter().any(|op| op.id == "add_to_docker_group"));
     }
 
     #[test]
@@ -240,13 +213,7 @@ mod tests {
         };
 
         let ops = build_plan(&config).unwrap();
-        assert!(ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::Subprocess {
-                id: "add_to_docker_group",
-                ..
-            }
-        )));
+        assert!(ops.iter().any(|op| op.id == "add_to_docker_group"));
     }
 
     #[test]
@@ -262,19 +229,7 @@ mod tests {
         };
 
         let ops = build_plan(&config).unwrap();
-        assert!(ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::Subprocess {
-                id: "enable_docker_service",
-                ..
-            }
-        )));
-        assert!(ops.iter().any(|op| matches!(
-            op,
-            DockerPlannedOperation::Subprocess {
-                id: "verify_docker",
-                ..
-            }
-        )));
+        assert!(ops.iter().any(|op| op.id == "enable_docker_service"));
+        assert!(ops.iter().any(|op| op.id == "verify_docker"));
     }
 }

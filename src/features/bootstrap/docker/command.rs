@@ -26,7 +26,7 @@ pub fn run(opts: BootstrapDockerCommand, global: &GlobalOpts) -> Result<ExitStat
         (OutputFormat::Human, false) => IoMode::LiveTee,
         _ => IoMode::Buffered,
     };
-    let report = execute_plan(&runner, &resolved.config, plan, io_mode)?;
+    let report = execute_plan(&runner, &resolved.config, &plan, io_mode);
 
     let style = match resolved.output {
         OutputFormat::Human => Style::for_human(global.color),

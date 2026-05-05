@@ -1,5 +1,5 @@
 use crate::core::operation::PlannedOperation;
-use crate::runner::{executor::execute_plan as shared_execute, CommandRunner, IoMode};
+use crate::runner::{CommandRunner, IoMode, executor::execute_plan as shared_execute};
 
 use super::input::BootstrapUserConfig;
 use super::report::BootstrapUserReport;
@@ -10,6 +10,14 @@ pub fn execute_plan(
     operations: &[PlannedOperation],
     io_mode: IoMode,
 ) -> BootstrapUserReport {
-    let results = shared_execute(operations, runner, config.dry_run, config.confirmed, io_mode);
-    BootstrapUserReport { operations: results }
+    let results = shared_execute(
+        operations,
+        runner,
+        config.dry_run,
+        config.confirmed,
+        io_mode,
+    );
+    BootstrapUserReport {
+        operations: results,
+    }
 }

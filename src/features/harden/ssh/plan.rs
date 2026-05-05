@@ -98,7 +98,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<PlannedOperation>> {
 
             operations.push(PlannedOperation {
                 id: "ensure_semanage_package",
-                description: &format!(
+                description: format!(
                     "Install {} if missing (provides semanage)",
                     SELINUX_UTILS_PKG
                 ),
@@ -112,7 +112,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<PlannedOperation>> {
 
             operations.push(PlannedOperation {
                 id: "selinux_allow_ssh_port",
-                description: &format!("Label port {} as ssh_port_t in SELinux policy", new_port),
+                description: format!("Label port {} as ssh_port_t in SELinux policy", new_port),
                 kind: OperationKind::Shell {
                     command: "sh".to_string(),
                     args: vec![
@@ -133,11 +133,14 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<PlannedOperation>> {
             });
 
             let listen_verify = VerifyStep {
-                description: &format!("verify SSH listening on port {}", new_port),
+                description: format!("verify SSH listening on port {}", new_port),
                 command: "sh".to_string(),
                 args: vec![
                     "-c".to_string(),
-                    format!("ss -tlnp 2>/dev/null | grep -q :{} || netstat -tlnp 2>/dev/null | grep -q :{}", new_port, new_port),
+                    format!(
+                        "ss -tlnp 2>/dev/null | grep -q :{} || netstat -tlnp 2>/dev/null | grep -q :{}",
+                        new_port, new_port
+                    ),
                 ],
             };
 
@@ -159,7 +162,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<PlannedOperation>> {
 
     if config.disable_root_login {
         let root_verify = VerifyStep {
-            description: "verify root login disabled",
+            description: "verify root login disabled".to_string(),
             command: "grep".to_string(),
             args: vec![
                 "-qE".to_string(),
@@ -191,7 +194,7 @@ pub fn build_plan(config: &HardenSshConfig) -> Result<Vec<PlannedOperation>> {
 
     if config.disable_password_auth {
         let pwd_verify = VerifyStep {
-            description: "verify password authentication disabled",
+            description: "verify password authentication disabled".to_string(),
             command: "grep".to_string(),
             args: vec![
                 "-qE".to_string(),

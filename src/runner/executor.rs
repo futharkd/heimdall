@@ -6,7 +6,9 @@ use std::process::Command;
 
 use anyhow::Result;
 
-use crate::core::operation::{OperationKind, OperationResult, OperationStatus, PlannedOperation, VerifyStep};
+use crate::core::operation::{
+    OperationKind, OperationResult, OperationStatus, PlannedOperation, VerifyStep,
+};
 use crate::features::operations::run_ensure_package;
 
 use super::{CommandRunner, IoMode};
@@ -24,14 +26,14 @@ pub fn execute_plan(
         // Dry-run: emit planned op with formatted detail
         if dry_run {
             let detail = format_operation_detail(&op.kind);
-            let detail = if op.verify.is_some() {
-                format!("{}\n  → verify: {}", detail, op.verify.as_ref().unwrap().description)
+            let detail = if let Some(verify) = &op.verify {
+                format!("{}\n  → verify: {}", detail, verify.description)
             } else {
                 detail
             };
             results.push(OperationResult {
                 id: op.id,
-                description: op.description,
+                description: op.description.clone(),
                 status: OperationStatus::Planned,
                 detail,
             });
@@ -39,16 +41,17 @@ pub fn execute_plan(
         }
 
         // Confirmation gate
-        if op.requires_confirmation && !yes {
-            if let Ok(false) = inquire::Confirm::new(&format!("{}?", op.description)).prompt() {
-                results.push(OperationResult {
-                    id: op.id,
-                    description: op.description,
-                    status: OperationStatus::Skipped,
-                    detail: "user declined".to_string(),
-                });
-                continue;
-            }
+        if op.requires_confirmation
+            && !yes
+            && let Ok(false) = inquire::Confirm::new(&format!("{}?", op.description)).prompt()
+        {
+            results.push(OperationResult {
+                id: op.id,
+                description: op.description.clone(),
+                status: OperationStatus::Skipped,
+                detail: "user declined".to_string(),
+            });
+            continue;
         }
 
         // Execute primary operation
@@ -60,11 +63,13 @@ pub fn execute_plan(
                 stdin_input,
             } => execute_shell(runner, command, args, env, stdin_input.as_deref(), io_mode),
             OperationKind::EnsurePackage { package } => {
-                run_ensure_package(runner, package, io_mode, op.description)
+                run_ensure_package(runner, package, io_mode, &op.description)
             }
-            OperationKind::WriteFile { path, content, mode } => {
-                execute_write_file(path, content, *mode)
-            }
+            OperationKind::WriteFile {
+                path,
+                content,
+                mode,
+            } => execute_write_file(path, content, *mode),
             OperationKind::InheritIo { command, args } => execute_inherit_io(command, args),
         };
 
@@ -73,7 +78,7 @@ pub fn execute_plan(
             Ok(output) if output.status.success() => {
                 // Primary op succeeded; run verify if present
                 if let Some(verify) = &op.verify {
-                    if let Err(e) = execute_verify(runner, verify, io_mode) {
+                    if let Err(_e) = execute_verify(runner, verify, io_mode) {
                         OperationStatus::Failed
                     } else {
                         OperationStatus::Succeeded
@@ -99,7 +104,7 @@ pub fn execute_plan(
 
         results.push(OperationResult {
             id: op.id,
-            description: op.description,
+            description: op.description.clone(),
             status,
             detail,
         });
@@ -130,7 +135,11 @@ fn format_operation_detail(kind: &OperationKind) -> String {
         OperationKind::EnsurePackage { package } => {
             format!("ensure package: {}", package)
         }
-        OperationKind::WriteFile { path, content: _, mode } => {
+        OperationKind::WriteFile {
+            path,
+            content: _,
+            mode,
+        } => {
             let mut s = format!("write {}", path.display());
             if let Some(m) = mode {
                 s.push_str(&format!(" (mode: {:o})", m));
@@ -161,12 +170,16 @@ fn execute_shell(
     }
 }
 
-fn execute_write_file(path: &Path, content: &str, mode: Option<u32>) -> Result<std::process::Output> {
+fn execute_write_file(
+    path: &Path,
+    content: &str,
+    mode: Option<u32>,
+) -> Result<std::process::Output> {
     // Create parent directory if needed
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
     }
 
     // Write file
@@ -195,16 +208,15 @@ fn execute_inherit_io(command: &str, args: &[String]) -> Result<std::process::Ou
     })
 }
 
-fn execute_verify(
-    runner: &dyn CommandRunner,
-    verify: &VerifyStep,
-    io_mode: IoMode,
-) -> Result<()> {
+fn execute_verify(runner: &dyn CommandRunner, verify: &VerifyStep, io_mode: IoMode) -> Result<()> {
     let args_refs: Vec<&str> = verify.args.iter().map(|s| s.as_str()).collect();
     let output = runner.run_with_env_io(&verify.command, &args_refs, &[], io_mode)?;
     if output.status.success() {
         Ok(())
     } else {
-        Err(anyhow::anyhow!("verify step failed: {}", verify.description))
+        Err(anyhow::anyhow!(
+            "verify step failed: {}",
+            verify.description
+        ))
     }
 }

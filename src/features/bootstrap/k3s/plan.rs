@@ -1,38 +1,33 @@
 use anyhow::Result;
 
-use crate::cli::K3sRole;
-
 use super::input::BootstrapK3sConfig;
+use crate::cli::K3sRole;
+use crate::core::operation::{OperationKind, PlannedOperation};
 
-#[derive(Debug, Clone)]
-pub struct K3sPlannedOperation {
-    pub id: &'static str,
-    pub description: &'static str,
-    pub command: String,
-    pub args: Vec<String>,
-    pub env: Vec<(String, String)>,
-    pub failure_is_warning: bool,
-}
-
-fn kubectl_verify_operation() -> K3sPlannedOperation {
-    K3sPlannedOperation {
+fn kubectl_verify_operation() -> PlannedOperation {
+    PlannedOperation {
         id: "k3s_kubectl_get_nodes",
-        description: "Verify cluster API (`sudo k3s kubectl get nodes -o name`)",
-        command: "sudo".to_string(),
-        args: vec![
-            "k3s".to_string(),
-            "kubectl".to_string(),
-            "get".to_string(),
-            "nodes".to_string(),
-            "-o".to_string(),
-            "name".to_string(),
-        ],
-        env: vec![],
+        description: "Verify cluster API (`sudo k3s kubectl get nodes -o name`)".to_string(),
+        kind: OperationKind::Shell {
+            command: "sudo".to_string(),
+            args: vec![
+                "k3s".to_string(),
+                "kubectl".to_string(),
+                "get".to_string(),
+                "nodes".to_string(),
+                "-o".to_string(),
+                "name".to_string(),
+            ],
+            env: vec![],
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
+        verify: None,
     }
 }
 
-pub fn build_plan(config: &BootstrapK3sConfig) -> Result<Vec<K3sPlannedOperation>> {
+pub fn build_plan(config: &BootstrapK3sConfig) -> Result<Vec<PlannedOperation>> {
     if config.skip_install {
         let mut ops = Vec::new();
         if !config.skip_start {
@@ -47,18 +42,23 @@ pub fn build_plan(config: &BootstrapK3sConfig) -> Result<Vec<K3sPlannedOperation
         .ok_or_else(|| anyhow::anyhow!("install script path is not valid UTF-8"))?
         .to_string();
 
-    let download = K3sPlannedOperation {
+    let download = PlannedOperation {
         id: "download_official_install_script",
-        description: "Download official k3s install script from get.k3s.io",
-        command: "curl".to_string(),
-        args: vec![
-            "-fsSL".to_string(),
-            "-o".to_string(),
-            install_path.clone(),
-            "https://get.k3s.io".to_string(),
-        ],
-        env: vec![],
+        description: "Download official k3s install script from get.k3s.io".to_string(),
+        kind: OperationKind::Shell {
+            command: "curl".to_string(),
+            args: vec![
+                "-fsSL".to_string(),
+                "-o".to_string(),
+                install_path.clone(),
+                "https://get.k3s.io".to_string(),
+            ],
+            env: vec![],
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
+        verify: None,
     };
 
     let mut install_env: Vec<(String, String)> = Vec::new();
@@ -83,13 +83,20 @@ pub fn build_plan(config: &BootstrapK3sConfig) -> Result<Vec<K3sPlannedOperation
         }
     }
 
-    let run_install = K3sPlannedOperation {
+    let run_install = PlannedOperation {
         id: "run_official_install_script",
-        description: "Execute official k3s install script (delegates to systemd and upstream layout)",
-        command: "sh".to_string(),
-        args: vec![install_path],
-        env: install_env,
+        description:
+            "Execute official k3s install script (delegates to systemd and upstream layout)"
+                .to_string(),
+        kind: OperationKind::Shell {
+            command: "sh".to_string(),
+            args: vec![install_path],
+            env: install_env,
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
+        verify: None,
     };
 
     let mut ops = vec![download, run_install];
@@ -144,40 +151,50 @@ mod tests {
 
     #[test]
     fn plan_downloads_get_k3s_io_and_sets_version_exec() {
+        use crate::core::operation::OperationKind;
         let plan = build_plan(&server_config()).expect("plan");
         let dl = plan.first().expect("download");
         assert_eq!(dl.id, "download_official_install_script");
-        assert!(dl.args.contains(&"https://get.k3s.io".to_string()));
+        if let OperationKind::Shell { args, .. } = &dl.kind {
+            assert!(args.contains(&"https://get.k3s.io".to_string()));
+        } else {
+            panic!("expected Shell kind");
+        }
 
         let inst = plan.get(1).expect("install");
         assert_eq!(inst.id, "run_official_install_script");
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "INSTALL_K3S_VERSION" && v == "v1.30.1+k3s1")
-        );
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "INSTALL_K3S_EXEC" && v == "--disable traefik")
-        );
-        assert!(!inst.env.iter().any(|(k, _)| k == "K3S_TOKEN"));
+        if let OperationKind::Shell { env, .. } = &inst.kind {
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "INSTALL_K3S_VERSION" && v == "v1.30.1+k3s1")
+            );
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "INSTALL_K3S_EXEC" && v == "--disable traefik")
+            );
+            assert!(!env.iter().any(|(k, _)| k == "K3S_TOKEN"));
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 
     #[test]
     fn plan_agent_includes_k3s_url_and_token() {
+        use crate::core::operation::OperationKind;
         let plan = build_plan(&agent_config()).expect("plan");
         let inst = plan.get(1).expect("install");
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "K3S_URL" && v == "https://cp.example:6443")
-        );
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "K3S_TOKEN" && v == "secret-agent-token")
-        );
+        if let OperationKind::Shell { env, .. } = &inst.kind {
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "K3S_URL" && v == "https://cp.example:6443")
+            );
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "K3S_TOKEN" && v == "secret-agent-token")
+            );
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 
     #[test]
@@ -191,21 +208,24 @@ mod tests {
 
     #[test]
     fn plan_sets_skip_flags_in_env() {
+        use crate::core::operation::OperationKind;
         let mut c = server_config();
         c.skip_start = true;
         c.skip_enable = true;
         let plan = build_plan(&c).expect("plan");
         let inst = plan.get(1).expect("install");
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "INSTALL_K3S_SKIP_START" && v == "true")
-        );
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "INSTALL_K3S_SKIP_ENABLE" && v == "true")
-        );
+        if let OperationKind::Shell { env, .. } = &inst.kind {
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "INSTALL_K3S_SKIP_START" && v == "true")
+            );
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "INSTALL_K3S_SKIP_ENABLE" && v == "true")
+            );
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 
     #[test]

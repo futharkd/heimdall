@@ -1,18 +1,9 @@
 use anyhow::{Result, bail};
 
 use super::input::BootstrapFluxConfig;
+use crate::core::operation::{OperationKind, PlannedOperation};
 
 pub const FLUX_SYNC_NAME: &str = "flux-system";
-
-#[derive(Debug, Clone)]
-pub struct FluxPlannedOperation {
-    pub id: &'static str,
-    pub description: &'static str,
-    pub command: String,
-    pub args: Vec<String>,
-    pub env: Vec<(String, String)>,
-    pub failure_is_warning: bool,
-}
 
 fn sudo_wrap_flux(args: Vec<String>, kube_elevated: bool) -> (String, Vec<String>) {
     if kube_elevated {
@@ -24,7 +15,7 @@ fn sudo_wrap_flux(args: Vec<String>, kube_elevated: bool) -> (String, Vec<String
     }
 }
 
-pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<FluxPlannedOperation>> {
+pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<PlannedOperation>> {
     let kube_env = super::input::kube_env(&config.kubeconfig);
 
     if config.namespace_exists {
@@ -40,27 +31,37 @@ pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<FluxPlannedOperati
             .ok_or_else(|| anyhow::anyhow!("install script path is not valid UTF-8"))?
             .to_string();
 
-        ops.push(FluxPlannedOperation {
+        ops.push(PlannedOperation {
             id: "download_flux_install_script",
-            description: "Download official Flux install script",
-            command: "curl".to_string(),
-            args: vec![
-                "-fsSL".to_string(),
-                "-o".to_string(),
-                install_path.clone(),
-                config.install_script_url.clone(),
-            ],
-            env: vec![],
+            description: "Download official Flux install script".to_string(),
+            kind: OperationKind::Shell {
+                command: "curl".to_string(),
+                args: vec![
+                    "-fsSL".to_string(),
+                    "-o".to_string(),
+                    install_path.clone(),
+                    config.install_script_url.clone(),
+                ],
+                env: vec![],
+                stdin_input: None,
+            },
+            requires_confirmation: false,
             failure_is_warning: false,
+            verify: None,
         });
 
-        ops.push(FluxPlannedOperation {
+        ops.push(PlannedOperation {
             id: "run_flux_install_script",
-            description: "Execute Flux install script (installs `flux` CLI)",
-            command: "bash".to_string(),
-            args: vec![install_path],
-            env: vec![],
+            description: "Execute Flux install script (installs `flux` CLI)".to_string(),
+            kind: OperationKind::Shell {
+                command: "bash".to_string(),
+                args: vec![install_path],
+                env: vec![],
+                stdin_input: None,
+            },
+            requires_confirmation: false,
             failure_is_warning: false,
+            verify: None,
         });
     }
 
@@ -91,13 +92,20 @@ pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<FluxPlannedOperati
 
     let (bootstrap_cmd, bootstrap_cmd_args) = sudo_wrap_flux(bootstrap_args, config.kube_elevated);
 
-    ops.push(FluxPlannedOperation {
+    ops.push(PlannedOperation {
         id: "flux_bootstrap_git",
-        description: "Flux bootstrap git (SSH deploy key; commits manifests and configures cluster)",
-        command: bootstrap_cmd,
-        args: bootstrap_cmd_args,
-        env: kube_env.clone(),
+        description:
+            "Flux bootstrap git (SSH deploy key; commits manifests and configures cluster)"
+                .to_string(),
+        kind: OperationKind::Shell {
+            command: bootstrap_cmd,
+            args: bootstrap_cmd_args,
+            env: kube_env.clone(),
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
+        verify: None,
     });
 
     let get_args = vec![
@@ -111,13 +119,18 @@ pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<FluxPlannedOperati
     ];
     let (get_cmd, get_cmd_args) = sudo_wrap_flux(get_args, config.kube_elevated);
 
-    ops.push(FluxPlannedOperation {
+    ops.push(PlannedOperation {
         id: "flux_get_kustomization",
-        description: "Verify Flux kustomization is known to the API",
-        command: get_cmd,
-        args: get_cmd_args,
-        env: kube_env,
+        description: "Verify Flux kustomization is known to the API".to_string(),
+        kind: OperationKind::Shell {
+            command: get_cmd,
+            args: get_cmd_args,
+            env: kube_env,
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
+        verify: None,
     });
 
     Ok(ops)
@@ -126,7 +139,7 @@ pub fn build_plan(config: &BootstrapFluxConfig) -> Result<Vec<FluxPlannedOperati
 fn reconcile_plan(
     config: &BootstrapFluxConfig,
     kube_env: &[(String, String)],
-) -> Vec<FluxPlannedOperation> {
+) -> Vec<PlannedOperation> {
     let ns = config.namespace.clone();
     let kc = config.kubeconfig.clone();
     let elevate = config.kube_elevated;
@@ -172,29 +185,44 @@ fn reconcile_plan(
     );
 
     vec![
-        FluxPlannedOperation {
+        PlannedOperation {
             id: "flux_reconcile_source_git",
-            description: "Reconcile existing Flux Git source",
-            command: src_cmd,
-            args: src_args,
-            env: kube_env.to_vec(),
+            description: "Reconcile existing Flux Git source".to_string(),
+            kind: OperationKind::Shell {
+                command: src_cmd,
+                args: src_args,
+                env: kube_env.to_vec(),
+                stdin_input: None,
+            },
+            requires_confirmation: false,
             failure_is_warning: false,
+            verify: None,
         },
-        FluxPlannedOperation {
+        PlannedOperation {
             id: "flux_reconcile_kustomization",
-            description: "Reconcile existing Flux kustomization",
-            command: kust_cmd,
-            args: kust_args,
-            env: kube_env.to_vec(),
+            description: "Reconcile existing Flux kustomization".to_string(),
+            kind: OperationKind::Shell {
+                command: kust_cmd,
+                args: kust_args,
+                env: kube_env.to_vec(),
+                stdin_input: None,
+            },
+            requires_confirmation: false,
             failure_is_warning: false,
+            verify: None,
         },
-        FluxPlannedOperation {
+        PlannedOperation {
             id: "flux_get_kustomization",
-            description: "Verify Flux kustomization after reconcile",
-            command: get_cmd,
-            args: get_args,
-            env: kube_env.to_vec(),
+            description: "Verify Flux kustomization after reconcile".to_string(),
+            kind: OperationKind::Shell {
+                command: get_cmd,
+                args: get_args,
+                env: kube_env.to_vec(),
+                stdin_input: None,
+            },
+            requires_confirmation: false,
             failure_is_warning: false,
+            verify: None,
         },
     ]
 }
@@ -231,25 +259,26 @@ mod tests {
 
     #[test]
     fn bootstrap_plan_includes_git_and_kubeconfig() {
+        use crate::core::operation::OperationKind;
         let plan = build_plan(&base_config()).expect("plan");
         let bootstrap = plan
             .iter()
             .find(|o| o.id == "flux_bootstrap_git")
             .expect("bootstrap");
-        assert!(bootstrap.args.iter().any(|a| a.starts_with("--url=ssh://")));
-        assert!(
-            bootstrap
-                .args
-                .iter()
-                .any(|a| a.starts_with("--private-key-file="))
-        );
-        assert!(!bootstrap.args.iter().any(|a| a == "--token-auth"));
-        assert!(bootstrap.args.contains(&"--silent".to_string()));
-        assert!(bootstrap.env.iter().any(|(k, _)| k == "KUBECONFIG"));
+        if let OperationKind::Shell { args, env, .. } = &bootstrap.kind {
+            assert!(args.iter().any(|a| a.starts_with("--url=ssh://")));
+            assert!(args.iter().any(|a| a.starts_with("--private-key-file=")));
+            assert!(!args.iter().any(|a| a == "--token-auth"));
+            assert!(args.contains(&"--silent".to_string()));
+            assert!(env.iter().any(|(k, _)| k == "KUBECONFIG"));
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 
     #[test]
     fn bootstrap_plan_wraps_flux_in_sudo_when_kube_elevated() {
+        use crate::core::operation::OperationKind;
         let mut c = base_config();
         c.kube_elevated = true;
         let plan = build_plan(&c).expect("plan");
@@ -257,20 +286,29 @@ mod tests {
             .iter()
             .find(|o| o.id == "flux_bootstrap_git")
             .expect("bootstrap");
-        assert_eq!(bootstrap.command, "sudo");
-        assert_eq!(bootstrap.args.first().map(String::as_str), Some("flux"));
-        assert!(bootstrap.args.contains(&"bootstrap".to_string()));
+        if let OperationKind::Shell { command, args, .. } = &bootstrap.kind {
+            assert_eq!(command, "sudo");
+            assert_eq!(args.first().map(String::as_str), Some("flux"));
+            assert!(args.contains(&"bootstrap".to_string()));
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 
     #[test]
     fn reconcile_plan_targets_flux_system() {
+        use crate::core::operation::OperationKind;
         let mut c = base_config();
         c.namespace_exists = true;
         let plan = build_plan(&c).expect("plan");
         assert_eq!(plan.len(), 3);
         assert!(plan.iter().any(|o| o.id == "flux_reconcile_source_git"));
         let src = plan.first().expect("src");
-        assert!(src.args.contains(&FLUX_SYNC_NAME.to_string()));
+        if let OperationKind::Shell { args, .. } = &src.kind {
+            assert!(args.contains(&FLUX_SYNC_NAME.to_string()));
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 
     #[test]
@@ -284,6 +322,7 @@ mod tests {
 
     #[test]
     fn bootstrap_plan_normalizes_scp_git_url_for_flux_cli() {
+        use crate::core::operation::OperationKind;
         let mut c = base_config();
         c.git_url = "git@gitlab.com:futharkd/cluster.git".to_string();
         let plan = build_plan(&c).expect("plan");
@@ -291,11 +330,13 @@ mod tests {
             .iter()
             .find(|o| o.id == "flux_bootstrap_git")
             .expect("bootstrap");
-        assert!(
-            bootstrap
-                .args
-                .iter()
-                .any(|a| { a.as_str() == "--url=ssh://git@gitlab.com/futharkd/cluster.git" })
-        );
+        if let OperationKind::Shell { args, .. } = &bootstrap.kind {
+            assert!(
+                args.iter()
+                    .any(|a| a == "--url=ssh://git@gitlab.com/futharkd/cluster.git")
+            );
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 }

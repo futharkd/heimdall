@@ -27,7 +27,7 @@ pub fn build_plan(_config: &ResetClusterConfig) -> Result<Vec<PlannedOperation>>
         },
         PlannedOperation {
             id: "flux_namespace_delete",
-            description: "Delete Flux namespace (best-effort)",
+            description: "Delete Flux namespace (best-effort)".to_string(),
             kind: OperationKind::Shell {
                 command: "sudo".to_string(),
                 args: vec![
@@ -47,7 +47,7 @@ pub fn build_plan(_config: &ResetClusterConfig) -> Result<Vec<PlannedOperation>>
         },
         PlannedOperation {
             id: "k3s_killall",
-            description: "Run k3s killall helper when present",
+            description: "Run k3s killall helper when present".to_string(),
             kind: OperationKind::Shell {
                 command: "sudo".to_string(),
                 args: vec![
@@ -64,7 +64,7 @@ pub fn build_plan(_config: &ResetClusterConfig) -> Result<Vec<PlannedOperation>>
         },
         PlannedOperation {
             id: "k3s_uninstall",
-            description: "Run k3s uninstall script (server or agent)",
+            description: "Run k3s uninstall script (server or agent)".to_string(),
             kind: OperationKind::Shell {
                 command: "sudo".to_string(),
                 args: vec![
@@ -81,7 +81,7 @@ pub fn build_plan(_config: &ResetClusterConfig) -> Result<Vec<PlannedOperation>>
         },
         PlannedOperation {
             id: "remove_k3s_and_cni_state",
-            description: "Remove k3s and CNI state directories",
+            description: "Remove k3s and CNI state directories".to_string(),
             kind: OperationKind::Shell {
                 command: "sudo".to_string(),
                 args: vec![
@@ -102,7 +102,7 @@ pub fn build_plan(_config: &ResetClusterConfig) -> Result<Vec<PlannedOperation>>
         },
         PlannedOperation {
             id: "remove_k3s_systemd_units",
-            description: "Remove stale k3s systemd unit files",
+            description: "Remove stale k3s systemd unit files".to_string(),
             kind: OperationKind::Shell {
                 command: "sudo".to_string(),
                 args: vec![
@@ -122,7 +122,7 @@ pub fn build_plan(_config: &ResetClusterConfig) -> Result<Vec<PlannedOperation>>
         },
         PlannedOperation {
             id: "remove_cni_links",
-            description: "Remove common CNI bridge links (best-effort)",
+            description: "Remove common CNI bridge links (best-effort)".to_string(),
             kind: OperationKind::Shell {
                 command: "sudo".to_string(),
                 args: vec![
@@ -139,7 +139,7 @@ pub fn build_plan(_config: &ResetClusterConfig) -> Result<Vec<PlannedOperation>>
         },
         PlannedOperation {
             id: "systemd_daemon_reload",
-            description: "Reload systemd units after cleanup",
+            description: "Reload systemd units after cleanup".to_string(),
             kind: OperationKind::Shell {
                 command: "sudo".to_string(),
                 args: vec!["systemctl".to_string(), "daemon-reload".to_string()],

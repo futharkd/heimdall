@@ -19,7 +19,10 @@ pub fn format_report_human(report: &BootstrapK3sReport, style: &Style) -> String
             OperationStatus::Failed => ("FAIL", StatusTone::Fail),
         };
         let token = style.status_token(label, tone);
-        lines.push(format!("{token}  {}", style.bold(operation.description)));
+        lines.push(format!(
+            "{token}  {}",
+            style.bold(operation.description.as_str())
+        ));
         let detail = operation.detail.trim();
         if !detail.is_empty() {
             for line in detail.lines() {

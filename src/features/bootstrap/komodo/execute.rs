@@ -56,7 +56,7 @@ pub fn execute_plan(
 
                 results.push(OperationResult {
                     id,
-                    description,
+                    description: description.to_string(),
                     status,
                     detail: String::new(),
                 });
@@ -93,7 +93,7 @@ pub fn execute_plan(
 
                 results.push(OperationResult {
                     id,
-                    description,
+                    description: description.to_string(),
                     status,
                     detail: path.display().to_string(),
                 });

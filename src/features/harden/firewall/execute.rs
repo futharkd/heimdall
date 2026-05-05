@@ -1,5 +1,5 @@
 use crate::core::operation::{OperationStatus, PlannedOperation};
-use crate::runner::{executor::execute_plan as shared_execute, CommandRunner, IoMode};
+use crate::runner::{CommandRunner, IoMode, executor::execute_plan as shared_execute};
 
 use super::input::HardenFirewallConfig;
 use super::report::HardenFirewallReport;
@@ -27,5 +27,7 @@ pub fn execute_plan(
         })
         .collect();
 
-    HardenFirewallReport { operations: results }
+    HardenFirewallReport {
+        operations: results,
+    }
 }

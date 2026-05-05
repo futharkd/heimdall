@@ -1,5 +1,5 @@
 use crate::core::operation::PlannedOperation;
-use crate::runner::{executor::execute_plan as shared_execute, CommandRunner, IoMode};
+use crate::runner::{CommandRunner, IoMode, executor::execute_plan as shared_execute};
 
 use super::input::BootstrapFluxConfig;
 use super::report::BootstrapFluxReport;
@@ -11,5 +11,7 @@ pub fn execute_plan(
     io_mode: IoMode,
 ) -> BootstrapFluxReport {
     let results = shared_execute(operations, runner, config.dry_run, false, io_mode);
-    BootstrapFluxReport { operations: results }
+    BootstrapFluxReport {
+        operations: results,
+    }
 }

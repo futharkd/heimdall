@@ -35,6 +35,7 @@ pub enum OperationKind {
         content: String,
         mode: Option<u32>,
     },
+    #[allow(dead_code)]
     InheritIo {
         command: String,
         args: Vec<String>,

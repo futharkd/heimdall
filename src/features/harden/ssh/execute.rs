@@ -1,5 +1,5 @@
 use crate::core::operation::PlannedOperation;
-use crate::runner::{executor::execute_plan as shared_execute, CommandRunner, IoMode};
+use crate::runner::{CommandRunner, IoMode, executor::execute_plan as shared_execute};
 
 use super::input::HardenSshConfig;
 use super::report::HardenSshReport;
@@ -11,7 +11,13 @@ pub fn execute_plan(
     io_mode: IoMode,
 ) -> HardenSshReport {
     // Convert core OperationResult to OperationResultOwned for report
-    let core_results = shared_execute(operations, runner, config.dry_run, config.assume_yes, io_mode);
+    let core_results = shared_execute(
+        operations,
+        runner,
+        config.dry_run,
+        config.assume_yes,
+        io_mode,
+    );
     let results = core_results
         .into_iter()
         .map(|r| super::report::OperationResultOwned {
@@ -27,5 +33,7 @@ pub fn execute_plan(
         })
         .collect();
 
-    HardenSshReport { operations: results }
+    HardenSshReport {
+        operations: results,
+    }
 }

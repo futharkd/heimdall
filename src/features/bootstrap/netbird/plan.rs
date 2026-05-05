@@ -50,7 +50,9 @@ pub fn build_plan(config: &BootstrapNetbirdConfig) -> Result<Vec<PlannedOperatio
 
     ops.push(PlannedOperation {
         id: "run_official_install_script",
-        description: "Execute official NetBird install.sh (delegates to apt/dnf/yum or binary upstream)".to_string(),
+        description:
+            "Execute official NetBird install.sh (delegates to apt/dnf/yum or binary upstream)"
+                .to_string(),
         kind: OperationKind::Shell {
             command: "sh".to_string(),
             args: vec![install_path],
@@ -102,7 +104,8 @@ pub fn build_plan(config: &BootstrapNetbirdConfig) -> Result<Vec<PlannedOperatio
 
     ops.push(PlannedOperation {
         id: "verify_wt0_interface",
-        description: "Check for wt0 interface (optional; may be absent until fully connected)".to_string(),
+        description: "Check for wt0 interface (optional; may be absent until fully connected)"
+            .to_string(),
         kind: OperationKind::Shell {
             command: "ip".to_string(),
             args: vec!["link".to_string(), "show".to_string(), "wt0".to_string()],
@@ -167,9 +170,15 @@ mod tests {
         let inst = plan.get(1).expect("install step");
         assert_eq!(inst.id, "run_official_install_script");
         if let OperationKind::Shell { env, .. } = &inst.kind {
-            assert!(env.iter().any(|(k, v)| k == "NETBIRD_RELEASE" && v == "latest"));
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "NETBIRD_RELEASE" && v == "latest")
+            );
             assert!(env.iter().any(|(k, v)| k == "SKIP_UI_APP" && v == "true"));
-            assert!(env.iter().any(|(k, v)| k == "USE_BIN_INSTALL" && v == "true"));
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "USE_BIN_INSTALL" && v == "true")
+            );
         } else {
             panic!("expected Shell kind");
         }
@@ -180,7 +189,10 @@ mod tests {
         let plan = build_plan(&sample_config_package()).expect("plan");
         let inst = plan.get(1).expect("install step");
         if let OperationKind::Shell { env, .. } = &inst.kind {
-            assert!(env.iter().any(|(k, v)| k == "DEBIAN_FRONTEND" && v == "noninteractive"));
+            assert!(
+                env.iter()
+                    .any(|(k, v)| k == "DEBIAN_FRONTEND" && v == "noninteractive")
+            );
             assert!(!env.iter().any(|(k, _)| k == "USE_BIN_INSTALL"));
         } else {
             panic!("expected Shell kind");
@@ -192,9 +204,15 @@ mod tests {
         let plan = build_plan(&sample_config()).expect("plan");
         let up = plan.iter().find(|s| s.id == "netbird_up").expect("up");
         if let OperationKind::Shell { args, .. } = &up.kind {
-            let pos = args.iter().position(|a| a == "--setup-key").expect("--setup-key");
+            let pos = args
+                .iter()
+                .position(|a| a == "--setup-key")
+                .expect("--setup-key");
             assert!(!args[pos + 1].is_empty());
-            let mpos = args.iter().position(|a| a == "--management-url").expect("--management-url");
+            let mpos = args
+                .iter()
+                .position(|a| a == "--management-url")
+                .expect("--management-url");
             assert_eq!(args[mpos + 1], "https://netbird.example:443");
         } else {
             panic!("expected Shell kind");

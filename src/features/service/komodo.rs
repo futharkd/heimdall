@@ -43,6 +43,7 @@ pub fn run(opts: ServiceKomodoCommand, global: &crate::cli::GlobalOpts) -> Resul
         action,
         backend: ServiceBackend::DockerCompose {
             compose_file,
+            env_file: Some(compose_dir.join("compose.env")),
             project_name,
             services,
         },

@@ -29,6 +29,7 @@ pub enum ServiceActionKind {
 pub enum ServiceBackend {
     DockerCompose {
         compose_file: PathBuf,
+        env_file: Option<PathBuf>,
         project_name: String,
         services: Vec<String>,
     },
@@ -48,9 +49,17 @@ pub fn plan_service_actions(plan: ServiceActionPlan) -> Vec<PlannedOperation> {
     match plan.backend {
         ServiceBackend::DockerCompose {
             compose_file,
+            env_file,
             project_name,
             services,
-        } => plan_docker_compose(plan.kind, plan.action, compose_file, project_name, services),
+        } => plan_docker_compose(
+            plan.kind,
+            plan.action,
+            compose_file,
+            env_file,
+            project_name,
+            services,
+        ),
         ServiceBackend::Systemd { unit_name } => plan_systemd(plan.kind, plan.action, unit_name),
     }
 }
@@ -142,6 +151,7 @@ fn plan_docker_compose(
     kind: ServiceKind,
     action: ServiceActionKind,
     compose_file: PathBuf,
+    env_file: Option<PathBuf>,
     project_name: String,
     services: Vec<String>,
 ) -> Vec<PlannedOperation> {
@@ -149,9 +159,14 @@ fn plan_docker_compose(
         "compose".to_string(),
         "-f".to_string(),
         compose_file.display().to_string(),
-        "-p".to_string(),
-        project_name,
     ];
+
+    if let Some(ef) = env_file {
+        args.push("--env-file".to_string());
+        args.push(ef.display().to_string());
+    }
+
+    args.extend(vec!["-p".to_string(), project_name]);
 
     let (id, description, verb) = match action {
         ServiceActionKind::Status => (
@@ -333,6 +348,7 @@ mod tests {
             action: ServiceActionKind::Start,
             backend: ServiceBackend::DockerCompose {
                 compose_file: PathBuf::from("/etc/heimdall/komodo/compose.yaml"),
+                env_file: Some(PathBuf::from("/etc/heimdall/komodo/compose.env")),
                 project_name: "komodo".to_string(),
                 services: vec!["core".to_string()],
             },

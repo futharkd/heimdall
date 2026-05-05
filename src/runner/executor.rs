@@ -175,8 +175,8 @@ fn execute_write_file(
     mode: Option<u32>,
     io_mode: IoMode,
 ) -> Result<std::process::Output> {
-    use crate::runner::write::write_file_with_escalation;
     use crate::core::operation::OperationStatus;
+    use crate::runner::write::write_file_with_escalation;
 
     let status = write_file_with_escalation(runner, path, content, mode, io_mode);
 

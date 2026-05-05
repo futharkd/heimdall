@@ -43,7 +43,11 @@ pub fn write_file_with_escalation(
         let mkdir_args = vec!["mkdir", "-p", &parent_str];
         let mkdir_result = runner.run_with_env_io("sudo", &mkdir_args, &[], io_mode);
 
-        if mkdir_result.is_err() || !mkdir_result.as_ref().map(|o| o.status.success()).unwrap_or(false)
+        if mkdir_result.is_err()
+            || !mkdir_result
+                .as_ref()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
         {
             let _ = fs::remove_file(&temp_path);
             return OperationStatus::Failed;
@@ -76,7 +80,9 @@ pub fn write_file_with_escalation(
         }
     } else {
         // Direct write for non-privileged paths
-        if let Some(parent) = path.parent() && fs::create_dir_all(parent).is_err() {
+        if let Some(parent) = path.parent()
+            && fs::create_dir_all(parent).is_err()
+        {
             return OperationStatus::Failed;
         }
 
@@ -84,7 +90,9 @@ pub fn write_file_with_escalation(
             return OperationStatus::Failed;
         }
 
-        if let Some(m) = mode && fs::set_permissions(path, fs::Permissions::from_mode(m)).is_err() {
+        if let Some(m) = mode
+            && fs::set_permissions(path, fs::Permissions::from_mode(m)).is_err()
+        {
             return OperationStatus::Failed;
         }
 

@@ -1,6 +1,6 @@
-pub mod write;
 pub mod executor;
 pub mod sudo;
+pub mod write;
 
 use std::io::{self, Read, Write};
 use std::process::{Command, Stdio};

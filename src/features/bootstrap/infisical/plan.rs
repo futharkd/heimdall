@@ -143,6 +143,34 @@ pub fn build_plan(config: &BootstrapInfisicalConfig) -> Result<Vec<InfisicalPlan
     });
 
     ops.push(InfisicalPlannedOperation::Subprocess {
+        id: "verify_universal_auth",
+        description: "Verify Universal Auth credentials and project access",
+        command: "infisical".to_string(),
+        args: vec![
+            "secrets".to_string(),
+            "list".to_string(),
+            "--project-slug".to_string(),
+            config.project_slug.clone(),
+            "--env".to_string(),
+            config.environment.clone(),
+            "--path".to_string(),
+            format!("/{}", config.node_name),
+            "--silent".to_string(),
+        ],
+        env: vec![
+            (
+                "INFISICAL_UNIVERSAL_AUTH_CLIENT_ID".to_string(),
+                config.client_id.clone(),
+            ),
+            (
+                "INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET".to_string(),
+                config.client_secret.clone(),
+            ),
+        ],
+        failure_is_warning: false,
+    });
+
+    ops.push(InfisicalPlannedOperation::Subprocess {
         id: "systemd_daemon_reload",
         description: "Reload systemd daemon",
         command: "sudo".to_string(),

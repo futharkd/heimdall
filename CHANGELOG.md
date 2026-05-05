@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/futharkd/heimdall/compare/v1.2.1...v1.2.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* show stdout on conditional commands ([66b3bfe](https://github.com/futharkd/heimdall/commit/66b3bfe49c6d4a62efc098534821653e5f5e0e3a))
+
 ## [1.2.1](https://github.com/futharkd/heimdall/compare/v1.2.0...v1.2.1) (2026-05-05)
 
 

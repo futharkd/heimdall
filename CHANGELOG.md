@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/futharkd/heimdall/compare/v1.2.0...v1.2.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* **service komodo:** load env for every action ([225a504](https://github.com/futharkd/heimdall/commit/225a50482298e53592a6628644b58128c56a0fc2))
+
 ## [1.2.0](https://github.com/futharkd/heimdall/compare/v1.1.0...v1.2.0) (2026-05-05)
 
 

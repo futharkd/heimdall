@@ -383,10 +383,6 @@ pub struct BootstrapInfisicalCommand {
     #[arg(long)]
     pub config_dir: Option<String>,
 
-    /// Skip `infisical login` step (user already authenticated).
-    #[arg(long)]
-    pub skip_login: bool,
-
     #[arg(long)]
     pub dry_run: bool,
 

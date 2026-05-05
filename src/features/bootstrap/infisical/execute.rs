@@ -2,7 +2,6 @@ use crate::core::operation::{OperationResult, OperationStatus};
 use crate::features::bootstrap::infisical::plan::InfisicalPlannedOperation;
 use crate::features::bootstrap::infisical::report::BootstrapInfisicalReport;
 use crate::runner::{CommandRunner, IoMode};
-use std::process::Command;
 
 pub fn execute_plan(
     runner: &dyn CommandRunner,
@@ -50,35 +49,6 @@ pub fn execute_plan(
                                 OperationStatus::Failed
                             }
                         }
-                    }
-                };
-
-                results.push(OperationResult {
-                    id,
-                    description: description.to_string(),
-                    status,
-                    detail: String::new(),
-                });
-
-                if status == OperationStatus::Failed {
-                    break;
-                }
-            }
-            InfisicalPlannedOperation::InheritIo {
-                id,
-                description,
-                command,
-                args,
-            } => {
-                let status = if matches!(io_mode, IoMode::Buffered) {
-                    OperationStatus::Planned
-                } else {
-                    let mut cmd = Command::new(&command);
-                    cmd.args(&args);
-
-                    match cmd.status() {
-                        Ok(status) if status.success() => OperationStatus::Succeeded,
-                        _ => OperationStatus::Failed,
                     }
                 };
 

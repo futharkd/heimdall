@@ -18,7 +18,6 @@ pub struct BootstrapInfisicalConfig {
     pub client_secret: String,
     pub secrets_dir: String,
     pub config_dir: String,
-    pub skip_login: bool,
     pub skip_install: bool,
     pub dry_run: bool,
     pub output: OutputFormat,
@@ -283,7 +282,11 @@ fn discover_folders(
                 Ok(folders) => {
                     let names: Vec<String> = folders
                         .iter()
-                        .filter_map(|f| f.get("name").and_then(|n| n.as_str()).map(String::from))
+                        .filter_map(|f| {
+                            f.get("folderName")
+                                .and_then(|n| n.as_str())
+                                .map(String::from)
+                        })
                         .collect();
                     Ok(names)
                 }
@@ -399,7 +402,6 @@ pub fn resolve_inputs(opts: BootstrapInfisicalCommand) -> Result<ResolvedInfisic
         client_secret,
         secrets_dir,
         config_dir,
-        skip_login: opts.skip_login,
         skip_install: false,
         dry_run: opts.dry_run,
         output: opts.output,

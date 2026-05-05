@@ -12,12 +12,6 @@ pub enum InfisicalPlannedOperation {
         env: Vec<(String, String)>,
         failure_is_warning: bool,
     },
-    InheritIo {
-        id: &'static str,
-        description: &'static str,
-        command: String,
-        args: Vec<String>,
-    },
     WriteFile {
         id: &'static str,
         description: &'static str,
@@ -66,19 +60,6 @@ pub fn build_plan(config: &BootstrapInfisicalConfig) -> Result<Vec<InfisicalPlan
             ],
             env: vec![],
             failure_is_warning: false,
-        });
-    }
-
-    if !config.skip_login {
-        ops.push(InfisicalPlannedOperation::InheritIo {
-            id: "infisical_login",
-            description: "Authenticate with Infisical",
-            command: "infisical".to_string(),
-            args: vec![
-                "login".to_string(),
-                "--domain".to_string(),
-                config.address.clone(),
-            ],
         });
     }
 

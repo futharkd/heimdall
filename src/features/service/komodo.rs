@@ -27,7 +27,7 @@ pub fn run(opts: ServiceKomodoCommand, global: &crate::cli::GlobalOpts) -> Resul
         opts.compose_dir
             .unwrap_or_else(|| "/etc/heimdall/komodo".to_string()),
     );
-    let compose_file = compose_dir.join("docker-compose.yml");
+    let compose_file = compose_dir.join("compose.yaml");
     let project_name = opts.project_name.unwrap_or_else(|| "komodo".to_string());
 
     let action: ServiceActionKind = opts.action.into();

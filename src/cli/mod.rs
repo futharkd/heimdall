@@ -51,6 +51,9 @@ pub struct GlobalOpts {
     /// When to emit ANSI colors in human reports (`NO_COLOR` in the environment always disables).
     #[arg(long, value_enum, default_value_t = ColorArg::Auto, global = true)]
     pub color: ColorArg,
+    /// Enable debug output (show subprocess stdout on success, full I/O on error).
+    #[arg(long, global = true)]
+    pub debug: bool,
 }
 
 #[derive(Debug, Parser)]

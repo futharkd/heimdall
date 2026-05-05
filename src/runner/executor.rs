@@ -1,4 +1,4 @@
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Write};
 use std::os::unix::process::ExitStatusExt;
 use std::path::Path;
 use std::process::Command;
@@ -10,9 +10,147 @@ use crate::core::operation::{
     OperationKind, OperationResult, OperationStatus, PlannedOperation, VerifyStep,
 };
 use crate::features::operations::run_ensure_package;
+use crate::output::Style;
 use crate::runner::sudo::{SudoPolicy, run_with_env_io_sudo, run_with_stdin_sudo};
 
 use super::{CommandRunner, IoMode};
+
+pub fn execute_plan_interactive(
+    ops: &[PlannedOperation],
+    runner: &dyn CommandRunner,
+    privilege: PrivilegeContext,
+    debug: bool,
+    style: &Style,
+) -> Vec<OperationResult> {
+    let mut results = Vec::new();
+    let tty = std::io::stdout().is_terminal();
+
+    for op in ops {
+        let op_type = match &op.kind {
+            OperationKind::Shell { .. } | OperationKind::InheritIo { .. } => "shell",
+            OperationKind::WriteFile { .. } => "file",
+            OperationKind::EnsurePackage { .. } => "pkg",
+        };
+
+        if tty {
+            print!("{} {}", style.yellow("[RUN]"), op.description);
+            let _ = std::io::stdout().flush();
+        } else {
+            println!("{} {}", style.yellow("[RUN]"), op.description);
+        }
+
+        let exec_result = match &op.kind {
+            OperationKind::Shell {
+                command,
+                args,
+                env,
+                stdin_input,
+            } => execute_shell(
+                runner,
+                command,
+                args,
+                env,
+                stdin_input.as_deref(),
+                privilege,
+                &op.description,
+                IoMode::Buffered,
+            ),
+            OperationKind::EnsurePackage { package } => {
+                run_ensure_package(runner, package, IoMode::Buffered, &op.description)
+            }
+            OperationKind::WriteFile {
+                path,
+                content,
+                mode,
+            } => execute_write_file(runner, path, content, *mode, IoMode::Buffered),
+            OperationKind::InheritIo { command, args } => execute_inherit_io(command, args),
+        };
+
+        let status = match &exec_result {
+            Ok(output) if output.status.success() => {
+                if let Some(verify) = &op.verify {
+                    if let Err(_e) =
+                        execute_verify(runner, verify, privilege, IoMode::Buffered, &op.description)
+                    {
+                        OperationStatus::Failed
+                    } else {
+                        OperationStatus::Succeeded
+                    }
+                } else {
+                    OperationStatus::Succeeded
+                }
+            }
+            Ok(_) => OperationStatus::Failed,
+            Err(_) => OperationStatus::Failed,
+        };
+
+        let detail = format_operation_detail(&op.kind);
+        let indent = if status == OperationStatus::Succeeded {
+            "      "
+        } else {
+            "       "
+        };
+
+        if tty {
+            print!("\x1b[1A\r\x1b[K");
+        }
+
+        let status_marker = match status {
+            OperationStatus::Succeeded => style.green("[OK]"),
+            OperationStatus::Failed => style.red("[FAIL]"),
+            _ => style.yellow("[PLAN]"),
+        };
+
+        println!("{} {}", status_marker, op.description);
+        println!(
+            "{}{} {} {}",
+            indent,
+            style.dim(op_type),
+            style.dim("→"),
+            style.dim(&detail)
+        );
+
+        if status == OperationStatus::Failed {
+            if let Ok(output) = &exec_result {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if !stderr.trim().is_empty() {
+                    for line in stderr.trim().lines() {
+                        println!("       {}", line);
+                    }
+                }
+                if debug {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    if !stdout.trim().is_empty() {
+                        for line in stdout.trim().lines() {
+                            println!("       {}", line);
+                        }
+                    }
+                }
+            }
+        } else if debug
+            && status == OperationStatus::Succeeded
+            && let Ok(output) = &exec_result
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.trim().lines() {
+                println!("       {}", line);
+            }
+        }
+
+        results.push(OperationResult {
+            id: op.id,
+            description: op.description.clone(),
+            status,
+            detail: String::new(),
+        });
+
+        if status == OperationStatus::Failed && !op.failure_is_warning {
+            break;
+        }
+    }
+
+    results
+}
 
 pub fn execute_plan(
     ops: &[PlannedOperation],

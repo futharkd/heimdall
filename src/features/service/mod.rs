@@ -78,19 +78,32 @@ pub fn execute_and_print(
 ) -> anyhow::Result<ExitStatus> {
     let runner = LocalRunner;
     let live_execution = matches!(output, crate::cli::OutputFormat::Human) && !dry_run;
-    let io_mode = if live_execution {
-        IoMode::LiveTee
+
+    let results = if live_execution {
+        let style = Style::for_human(global.color);
+        executor::execute_plan_interactive(
+            &operations,
+            &runner,
+            PrivilegeContext::ELEVATED_OPS,
+            global.debug,
+            &style,
+        )
     } else {
-        IoMode::Buffered
+        let io_mode = if live_execution {
+            IoMode::LiveTee
+        } else {
+            IoMode::Buffered
+        };
+        executor::execute_plan(
+            &operations,
+            &runner,
+            PrivilegeContext::ELEVATED_OPS,
+            dry_run,
+            true,
+            io_mode,
+        )
     };
-    let results = executor::execute_plan(
-        &operations,
-        &runner,
-        PrivilegeContext::ELEVATED_OPS,
-        dry_run,
-        true,
-        io_mode,
-    );
+
     let report = ServiceReport {
         service: service_name.to_string(),
         operations: results,
@@ -319,7 +332,7 @@ mod tests {
             kind: ServiceKind::Komodo,
             action: ServiceActionKind::Start,
             backend: ServiceBackend::DockerCompose {
-                compose_file: PathBuf::from("/etc/heimdall/komodo/docker-compose.yml"),
+                compose_file: PathBuf::from("/etc/heimdall/komodo/compose.yaml"),
                 project_name: "komodo".to_string(),
                 services: vec!["core".to_string()],
             },

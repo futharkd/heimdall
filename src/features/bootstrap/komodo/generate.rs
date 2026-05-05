@@ -11,6 +11,7 @@ version: '3.8'
 services:
   mongo:
     image: mongo
+    container_name: komodo-mongo
     labels:
       komodo.skip: ""
     command: --quiet --wiredTigerCacheSizeGB 0.25
@@ -24,6 +25,7 @@ services:
 
   core:
     image: ghcr.io/moghtech/komodo-core:${{COMPOSE_KOMODO_IMAGE_TAG:-2}}
+    container_name: komodo-core
     init: true
     restart: unless-stopped
     depends_on:
@@ -39,6 +41,7 @@ services:
 
   periphery:
     image: ghcr.io/moghtech/komodo-periphery:${{COMPOSE_KOMODO_IMAGE_TAG:-2}}
+    container_name: komodo-periphery
     init: true
     restart: unless-stopped
     depends_on:
@@ -69,6 +72,9 @@ version: '3.8'
 services:
   periphery:
     image: ghcr.io/moghtech/komodo-periphery:${{COMPOSE_KOMODO_IMAGE_TAG:-2}}
+    container_name: komodo-periphery
+    labels:
+      komodo.skip: ""
     init: true
     restart: unless-stopped
     env_file: ./compose.env

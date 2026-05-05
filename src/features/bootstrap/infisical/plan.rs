@@ -214,6 +214,29 @@ pub fn build_plan(
         failure_is_warning: false,
     });
 
+    ops.push(InfisicalPlannedOperation::Subprocess {
+        id: "create_secrets_dir",
+        description: "Create secrets output root directory",
+        command: "mkdir".to_string(),
+        args: vec!["-p".to_string(), config.secrets_dir.clone()],
+        env: vec![],
+        failure_is_warning: false,
+    });
+
+    for folder in &artifacts.folders {
+        ops.push(InfisicalPlannedOperation::Subprocess {
+            id: "create_secret_subdir",
+            description: "Create secrets output subdirectory",
+            command: "mkdir".to_string(),
+            args: vec![
+                "-p".to_string(),
+                format!("{}/{}", config.secrets_dir, folder),
+            ],
+            env: vec![],
+            failure_is_warning: false,
+        });
+    }
+
     ops.push(InfisicalPlannedOperation::WriteFile {
         id: "write_client_id",
         description: "Write Infisical client ID",

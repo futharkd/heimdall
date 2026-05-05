@@ -18,6 +18,7 @@ pub enum KomodoPlannedOperation {
         description: &'static str,
         path: PathBuf,
         content: String,
+        mode: u32,
     },
 }
 
@@ -54,6 +55,7 @@ pub fn build_plan(config: &BootstrapKomodoConfig) -> Result<Vec<KomodoPlannedOpe
             description: "Write Docker Compose configuration",
             path: dir_path.join("compose.yaml"),
             content: compose_yaml_content,
+            mode: 0o640,
         });
 
         ops.push(KomodoPlannedOperation::WriteFile {
@@ -61,6 +63,7 @@ pub fn build_plan(config: &BootstrapKomodoConfig) -> Result<Vec<KomodoPlannedOpe
             description: "Write Docker Compose environment variables",
             path: dir_path.join("compose.env"),
             content: compose_env_content,
+            mode: 0o600,
         });
     } else {
         // Periphery mode
@@ -70,6 +73,7 @@ pub fn build_plan(config: &BootstrapKomodoConfig) -> Result<Vec<KomodoPlannedOpe
                 description: "Write Core's public key",
                 path: dir_path.join("keys").join("core.pub"),
                 content: key_content.clone(),
+                mode: 0o644,
             });
         }
 
@@ -81,6 +85,7 @@ pub fn build_plan(config: &BootstrapKomodoConfig) -> Result<Vec<KomodoPlannedOpe
             description: "Write Docker Compose configuration",
             path: dir_path.join("compose.yaml"),
             content: compose_yaml_content,
+            mode: 0o640,
         });
 
         ops.push(KomodoPlannedOperation::WriteFile {
@@ -88,6 +93,7 @@ pub fn build_plan(config: &BootstrapKomodoConfig) -> Result<Vec<KomodoPlannedOpe
             description: "Write Docker Compose environment variables",
             path: dir_path.join("compose.env"),
             content: compose_env_content,
+            mode: 0o600,
         });
     }
 

@@ -1,3 +1,4 @@
+pub mod write;
 pub mod executor;
 pub mod sudo;
 

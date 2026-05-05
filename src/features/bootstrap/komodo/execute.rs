@@ -2,7 +2,6 @@ use crate::core::operation::{OperationResult, OperationStatus};
 use crate::features::bootstrap::komodo::plan::KomodoPlannedOperation;
 use crate::features::bootstrap::komodo::report::BootstrapKomodoReport;
 use crate::runner::{CommandRunner, IoMode};
-use std::fs;
 
 pub fn execute_plan(
     runner: &dyn CommandRunner,
@@ -10,6 +9,8 @@ pub fn execute_plan(
     operations: Vec<KomodoPlannedOperation>,
     io_mode: IoMode,
 ) -> BootstrapKomodoReport {
+    use crate::runner::write::write_file_with_escalation;
+
     let mut results = vec![];
 
     for op in operations {
@@ -71,24 +72,14 @@ pub fn execute_plan(
                 description,
                 path,
                 content,
+                mode,
             } => {
                 let status = if matches!(io_mode, IoMode::Buffered) {
                     // Dry-run
                     OperationStatus::Planned
                 } else {
-                    // Actually write the file
-                    if let Some(parent) = path.parent() {
-                        if fs::create_dir_all(parent).is_err() {
-                            OperationStatus::Failed
-                        } else {
-                            match fs::write(&path, &content) {
-                                Ok(_) => OperationStatus::Succeeded,
-                                Err(_) => OperationStatus::Failed,
-                            }
-                        }
-                    } else {
-                        OperationStatus::Failed
-                    }
+                    // Actually write the file using shared helper
+                    write_file_with_escalation(runner, &path, &content, Some(mode), io_mode)
                 };
 
                 results.push(OperationResult {

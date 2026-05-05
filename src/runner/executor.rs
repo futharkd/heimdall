@@ -1,5 +1,3 @@
-use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::ExitStatusExt;
 use std::path::Path;
 use std::process::Command;
@@ -69,7 +67,7 @@ pub fn execute_plan(
                 path,
                 content,
                 mode,
-            } => execute_write_file(path, content, *mode),
+            } => execute_write_file(runner, path, content, *mode, io_mode),
             OperationKind::InheritIo { command, args } => execute_inherit_io(command, args),
         };
 
@@ -171,32 +169,26 @@ fn execute_shell(
 }
 
 fn execute_write_file(
+    runner: &dyn CommandRunner,
     path: &Path,
     content: &str,
     mode: Option<u32>,
+    io_mode: IoMode,
 ) -> Result<std::process::Output> {
-    // Create parent directory if needed
-    if let Some(parent) = path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent)?;
+    use crate::runner::write::write_file_with_escalation;
+    use crate::core::operation::OperationStatus;
+
+    let status = write_file_with_escalation(runner, path, content, mode, io_mode);
+
+    // Convert OperationStatus to Result<Output>
+    match status {
+        OperationStatus::Succeeded => Ok(std::process::Output {
+            status: std::process::ExitStatus::from_raw(0),
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+        }),
+        _ => Err(anyhow::anyhow!("failed to write file")),
     }
-
-    // Write file
-    fs::write(path, content)?;
-
-    // Set permissions if provided
-    if let Some(m) = mode {
-        let perms = fs::Permissions::from_mode(m);
-        fs::set_permissions(path, perms)?;
-    }
-
-    // Return a success Output
-    Ok(std::process::Output {
-        status: std::process::ExitStatus::from_raw(0),
-        stdout: Vec::new(),
-        stderr: Vec::new(),
-    })
 }
 
 fn execute_inherit_io(command: &str, args: &[String]) -> Result<std::process::Output> {

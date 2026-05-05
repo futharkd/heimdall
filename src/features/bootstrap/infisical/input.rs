@@ -1,4 +1,5 @@
 use crate::cli::{BootstrapInfisicalCommand, OutputFormat};
+use crate::config::InfisicalState;
 use crate::features::bootstrap::infisical::validate;
 use anyhow::Result;
 use inquire::{Select, Text};
@@ -9,6 +10,7 @@ use std::process::Command;
 pub struct BootstrapInfisicalConfig {
     pub address: String,
     pub project_slug: String,
+    pub project_id: String,
     pub environment: String,
     pub node_name: String,
     pub folders: Vec<String>,
@@ -36,21 +38,58 @@ fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
     })
 }
 
-fn resolve_project_slug(opts: &BootstrapInfisicalCommand) -> Result<String> {
+fn resolve_project_slug(
+    opts: &BootstrapInfisicalCommand,
+    saved: &InfisicalState,
+) -> Result<String> {
     if let Some(slug) = &opts.project_slug {
         return Ok(slug.clone());
     }
 
     if !std::io::stdin().is_terminal() {
+        if let Some(saved_slug) = &saved.project_slug {
+            return Ok(saved_slug.clone());
+        }
         return Err(anyhow::anyhow!(
             "project_slug is required; pass --project-slug or INFISICAL_PROJECT_SLUG"
         ));
     }
 
-    let slug = map_inquire(Text::new("Infisical project slug:").prompt())?;
+    let mut prompt = Text::new("Infisical project slug:");
+    if let Some(s) = saved.project_slug.as_deref() {
+        prompt = prompt.with_default(s);
+    }
+    let slug = map_inquire(prompt.prompt())?;
     let trimmed = slug.trim();
     if trimmed.is_empty() {
         Err(anyhow::anyhow!("project slug cannot be empty"))
+    } else {
+        Ok(trimmed.to_string())
+    }
+}
+
+fn resolve_project_id(opts: &BootstrapInfisicalCommand, saved: &InfisicalState) -> Result<String> {
+    if let Some(id) = &opts.project_id {
+        return Ok(id.clone());
+    }
+
+    if !std::io::stdin().is_terminal() {
+        if let Some(saved_id) = &saved.project_id {
+            return Ok(saved_id.clone());
+        }
+        return Err(anyhow::anyhow!(
+            "project_id is required; pass --project-id or INFISICAL_PROJECT_ID"
+        ));
+    }
+
+    let mut prompt = Text::new("Infisical project ID:");
+    if let Some(s) = saved.project_id.as_deref() {
+        prompt = prompt.with_default(s);
+    }
+    let id = map_inquire(prompt.prompt())?;
+    let trimmed = id.trim();
+    if trimmed.is_empty() {
+        Err(anyhow::anyhow!("project ID cannot be empty"))
     } else {
         Ok(trimmed.to_string())
     }
@@ -96,9 +135,12 @@ fn resolve_client_secret(opts: &BootstrapInfisicalCommand) -> Result<String> {
     }
 }
 
-fn resolve_node_name(opts: &BootstrapInfisicalCommand) -> Result<String> {
+fn resolve_node_name(opts: &BootstrapInfisicalCommand, saved: &InfisicalState) -> Result<String> {
     if let Some(name) = &opts.node_name {
         return Ok(name.clone());
+    }
+    if let Some(saved_node) = &saved.node_name {
+        return Ok(saved_node.clone());
     }
 
     let output = std::process::Command::new("hostname")
@@ -125,13 +167,16 @@ fn resolve_node_name(opts: &BootstrapInfisicalCommand) -> Result<String> {
 const ADDRESS_EU: &str = "https://eu.infisical.com";
 const ADDRESS_US: &str = "https://app.infisical.com";
 
-fn resolve_address(opts: &BootstrapInfisicalCommand) -> Result<String> {
+fn resolve_address(opts: &BootstrapInfisicalCommand, saved: &InfisicalState) -> Result<String> {
     if let Some(addr) = &opts.address {
         return Ok(addr.clone());
     }
 
     if !std::io::stdin().is_terminal() {
-        return Ok(ADDRESS_EU.to_string());
+        return Ok(saved
+            .address
+            .clone()
+            .unwrap_or_else(|| ADDRESS_EU.to_string()));
     }
 
     let options = vec![
@@ -140,9 +185,16 @@ fn resolve_address(opts: &BootstrapInfisicalCommand) -> Result<String> {
         "Custom (self-hosted)".to_string(),
     ];
 
+    let starting_cursor = match saved.address.as_deref() {
+        Some(ADDRESS_EU) => 0,
+        Some(ADDRESS_US) => 1,
+        Some(_) => 2,
+        None => 0,
+    };
+
     let choice = map_inquire(
         Select::new("Infisical region:", options.clone())
-            .with_starting_cursor(0)
+            .with_starting_cursor(starting_cursor)
             .prompt(),
     )?;
 
@@ -151,7 +203,14 @@ fn resolve_address(opts: &BootstrapInfisicalCommand) -> Result<String> {
     } else if choice == options[1] {
         Ok(ADDRESS_US.to_string())
     } else {
-        let url = map_inquire(Text::new("Infisical API URL:").prompt())?;
+        let mut prompt = Text::new("Infisical API URL:");
+        if let Some(saved_addr) = saved.address.as_deref()
+            && saved_addr != ADDRESS_EU
+            && saved_addr != ADDRESS_US
+        {
+            prompt = prompt.with_default(saved_addr);
+        }
+        let url = map_inquire(prompt.prompt())?;
         let trimmed = url.trim().to_string();
         validate::validate_address(&trimmed)?;
         Ok(trimmed)
@@ -194,7 +253,7 @@ fn universal_auth_token(client_id: &str, client_secret: &str, address: &str) -> 
 }
 
 fn discover_folders(
-    environment: &str,
+    project_id: &str,
     node_name: &str,
     token: &str,
     address: &str,
@@ -206,13 +265,14 @@ fn discover_folders(
             "get",
             "--domain",
             address,
-            "--env",
-            environment,
+            "--projectId",
+            project_id,
             "--path",
             &format!("/{}", node_name),
             "--token",
             token,
-            "--json",
+            "--output",
+            "json",
         ])
         .output();
 
@@ -243,7 +303,7 @@ fn discover_folders(
 
 fn resolve_folders(
     opts: &BootstrapInfisicalCommand,
-    environment: &str,
+    project_id: &str,
     node_name: &str,
     client_id: &str,
     client_secret: &str,
@@ -254,7 +314,7 @@ fn resolve_folders(
     }
 
     let discovery_result = universal_auth_token(client_id, client_secret, address)
-        .and_then(|token| discover_folders(environment, node_name, &token, address));
+        .and_then(|token| discover_folders(project_id, node_name, &token, address));
 
     match discovery_result {
         Ok(folders) => {
@@ -295,19 +355,26 @@ fn resolve_folders(
 }
 
 pub fn resolve_inputs(opts: BootstrapInfisicalCommand) -> Result<ResolvedInfisicalInputs> {
-    let address = resolve_address(&opts)?;
+    let saved = crate::config::load()
+        .ok()
+        .and_then(|(cfg, _)| cfg.bootstrap.and_then(|b| b.infisical))
+        .unwrap_or_default();
+
+    let address = resolve_address(&opts, &saved)?;
     let environment = opts
         .environment
         .clone()
+        .or_else(|| saved.environment.clone())
         .unwrap_or_else(|| "prod".to_string());
-    let project_slug = resolve_project_slug(&opts)?;
-    let node_name = resolve_node_name(&opts)?;
+    let project_slug = resolve_project_slug(&opts, &saved)?;
+    let project_id = resolve_project_id(&opts, &saved)?;
+    let node_name = resolve_node_name(&opts, &saved)?;
     let client_id = resolve_client_id(&opts)?;
     let client_secret = resolve_client_secret(&opts)?;
 
     let folders = resolve_folders(
         &opts,
-        &environment,
+        &project_id,
         &node_name,
         &client_id,
         &client_secret,
@@ -324,6 +391,7 @@ pub fn resolve_inputs(opts: BootstrapInfisicalCommand) -> Result<ResolvedInfisic
     let config = BootstrapInfisicalConfig {
         address,
         project_slug,
+        project_id,
         environment,
         node_name,
         folders,

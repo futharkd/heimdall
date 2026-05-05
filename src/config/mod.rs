@@ -7,6 +7,21 @@ use std::path::PathBuf;
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct HeimdallConfig {
     pub harden: Option<HardenConfig>,
+    pub bootstrap: Option<BootstrapConfig>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct BootstrapConfig {
+    pub infisical: Option<InfisicalState>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct InfisicalState {
+    pub address: Option<String>,
+    pub project_id: Option<String>,
+    pub project_slug: Option<String>,
+    pub environment: Option<String>,
+    pub node_name: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -87,6 +102,42 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_bootstrap_infisical_state_roundtrip() {
+        let config = HeimdallConfig {
+            harden: None,
+            bootstrap: Some(BootstrapConfig {
+                infisical: Some(InfisicalState {
+                    address: Some("https://eu.infisical.com".to_string()),
+                    project_id: Some("5bafc061-6f3a-4e06-aa0e-43f9be261aab".to_string()),
+                    project_slug: Some("kenaz".to_string()),
+                    environment: Some("prod".to_string()),
+                    node_name: Some("kenaz".to_string()),
+                }),
+            }),
+        };
+
+        let yaml = serde_yaml::to_string(&config).expect("serialize");
+        let parsed: HeimdallConfig = serde_yaml::from_str(&yaml).expect("deserialize");
+
+        let infisical = parsed
+            .bootstrap
+            .expect("bootstrap")
+            .infisical
+            .expect("infisical");
+        assert_eq!(
+            infisical.project_id.as_deref(),
+            Some("5bafc061-6f3a-4e06-aa0e-43f9be261aab")
+        );
+        assert_eq!(infisical.project_slug.as_deref(), Some("kenaz"));
+        assert_eq!(
+            infisical.address.as_deref(),
+            Some("https://eu.infisical.com")
+        );
+        assert_eq!(infisical.environment.as_deref(), Some("prod"));
+        assert_eq!(infisical.node_name.as_deref(), Some("kenaz"));
+    }
+
+    #[test]
     fn test_config_serialize_deserialize() {
         let config = HeimdallConfig {
             harden: Some(HardenConfig {
@@ -104,6 +155,7 @@ mod tests {
                     }],
                 }),
             }),
+            bootstrap: None,
         };
 
         let yaml = serde_yaml::to_string(&config).expect("serialize");

@@ -351,6 +351,10 @@ pub struct BootstrapInfisicalCommand {
     #[arg(long)]
     pub project_slug: Option<String>,
 
+    /// Infisical project ID (UUID; required; prompted if TTY).
+    #[arg(long)]
+    pub project_id: Option<String>,
+
     /// Secrets environment (default: prod).
     #[arg(long)]
     pub environment: Option<String>,

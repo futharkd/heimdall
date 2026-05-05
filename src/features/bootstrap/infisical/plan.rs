@@ -133,7 +133,6 @@ pub fn build_plan(config: &BootstrapInfisicalConfig) -> Result<Vec<InfisicalPlan
         command: "infisical".to_string(),
         args: vec![
             "secrets".to_string(),
-            "list".to_string(),
             "--domain".to_string(),
             config.address.clone(),
             "--projectId".to_string(),

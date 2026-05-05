@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/futharkd/heimdall/compare/v1.0.2...v1.1.0) (2026-05-05)
+
+
+### Features
+
+* **doctor:** check infisical agent service ([826a5ee](https://github.com/futharkd/heimdall/commit/826a5ee8e706fa9981da7d63be7ccba05146b2bc))
+* **service:** add lifecycle commands for services ([bc4250c](https://github.com/futharkd/heimdall/commit/bc4250c300c69712ecf86a490ea2aa00e5090d01))
+
+
+### Bug Fixes
+
+* **bootstrap komodo:** add proper container names ([f72add9](https://github.com/futharkd/heimdall/commit/f72add9618c4682ecbb8d0c9ae83cc958b3e4801))
+
 ## [1.0.2](https://github.com/futharkd/heimdall/compare/v1.0.1...v1.0.2) (2026-05-05)
 
 

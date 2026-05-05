@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.5](https://github.com/futharkd/heimdall/compare/v0.8.4...v0.8.5) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** remove unnecessary flag from folder discovery ([c3d1655](https://github.com/futharkd/heimdall/commit/c3d1655564588b90852147f97ff4f58ee71274e4))
+
 ## [0.8.4](https://github.com/futharkd/heimdall/compare/v0.8.3...v0.8.4) (2026-05-05)
 
 

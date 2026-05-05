@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.6](https://github.com/futharkd/heimdall/compare/v0.8.5...v0.8.6) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** add project id and add to heimdall static config ([bc5e579](https://github.com/futharkd/heimdall/commit/bc5e579abd16377fdafecbc8bff1b0ce753b0414))
+
 ## [0.8.5](https://github.com/futharkd/heimdall/compare/v0.8.4...v0.8.5) (2026-05-05)
 
 

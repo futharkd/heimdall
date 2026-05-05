@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/futharkd/heimdall/compare/v0.6.2...v0.7.0) (2026-05-05)
+
+
+### Features
+
+* **bootstrap:** add infisical command for secrets management ([8093dbd](https://github.com/futharkd/heimdall/commit/8093dbdca913e005049bbc6f899e3b313110e11e))
+
 ## [0.6.2](https://github.com/futharkd/heimdall/compare/v0.6.1...v0.6.2) (2026-05-04)
 
 

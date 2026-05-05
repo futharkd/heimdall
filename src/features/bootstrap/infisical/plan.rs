@@ -183,8 +183,8 @@ pub fn build_plan(
         ops.push(InfisicalPlannedOperation::Subprocess {
             id: "run_setup_script",
             description: "Configure Infisical RPM repository",
-            command: "sudo".to_string(),
-            args: vec!["bash".to_string(), "/tmp/setup.rpm.sh".to_string()],
+            command: "bash".to_string(),
+            args: vec!["/tmp/setup.rpm.sh".to_string()],
             env: vec![],
             failure_is_warning: false,
         });
@@ -192,9 +192,8 @@ pub fn build_plan(
         ops.push(InfisicalPlannedOperation::Subprocess {
             id: "install_infisical",
             description: "Install Infisical CLI via yum",
-            command: "sudo".to_string(),
+            command: "yum".to_string(),
             args: vec![
-                "yum".to_string(),
                 "install".to_string(),
                 "-y".to_string(),
                 "infisical".to_string(),
@@ -209,8 +208,8 @@ pub fn build_plan(
     ops.push(InfisicalPlannedOperation::Subprocess {
         id: "create_creds_dir",
         description: "Create credentials directory",
-        command: "sudo".to_string(),
-        args: vec!["mkdir".to_string(), "-p".to_string(), creds_dir.clone()],
+        command: "mkdir".to_string(),
+        args: vec!["-p".to_string(), creds_dir.clone()],
         env: vec![],
         failure_is_warning: false,
     });
@@ -234,13 +233,8 @@ pub fn build_plan(
     ops.push(InfisicalPlannedOperation::Subprocess {
         id: "secure_creds",
         description: "Set ownership of credentials to root:root",
-        command: "sudo".to_string(),
-        args: vec![
-            "chown".to_string(),
-            "-R".to_string(),
-            "root:root".to_string(),
-            creds_dir,
-        ],
+        command: "chown".to_string(),
+        args: vec!["-R".to_string(), "root:root".to_string(), creds_dir],
         env: vec![],
         failure_is_warning: false,
     });
@@ -302,8 +296,8 @@ pub fn build_plan(
     ops.push(InfisicalPlannedOperation::Subprocess {
         id: "systemd_daemon_reload",
         description: "Reload systemd daemon",
-        command: "sudo".to_string(),
-        args: vec!["systemctl".to_string(), "daemon-reload".to_string()],
+        command: "systemctl".to_string(),
+        args: vec!["daemon-reload".to_string()],
         env: vec![],
         failure_is_warning: false,
     });
@@ -311,12 +305,8 @@ pub fn build_plan(
     ops.push(InfisicalPlannedOperation::Subprocess {
         id: "systemd_enable",
         description: "Enable infisical-agent service",
-        command: "sudo".to_string(),
-        args: vec![
-            "systemctl".to_string(),
-            "enable".to_string(),
-            "infisical-agent.service".to_string(),
-        ],
+        command: "systemctl".to_string(),
+        args: vec!["enable".to_string(), "infisical-agent.service".to_string()],
         env: vec![],
         failure_is_warning: false,
     });
@@ -324,12 +314,8 @@ pub fn build_plan(
     ops.push(InfisicalPlannedOperation::Subprocess {
         id: "systemd_restart",
         description: "Restart infisical-agent service",
-        command: "sudo".to_string(),
-        args: vec![
-            "systemctl".to_string(),
-            "restart".to_string(),
-            "infisical-agent.service".to_string(),
-        ],
+        command: "systemctl".to_string(),
+        args: vec!["restart".to_string(), "infisical-agent.service".to_string()],
         env: vec![],
         failure_is_warning: false,
     });

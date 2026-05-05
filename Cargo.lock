@@ -303,6 +303,7 @@ dependencies = [
  "anyhow",
  "clap",
  "inquire",
+ "libc",
  "serde",
  "serde_json",
  "serde_yaml",

@@ -1,3 +1,4 @@
+use crate::core::elevation::path_requires_privilege_escalation;
 use crate::core::operation::OperationStatus;
 use crate::runner::{CommandRunner, IoMode};
 use std::fs;
@@ -13,9 +14,7 @@ pub fn write_file_with_escalation(
     io_mode: IoMode,
 ) -> OperationStatus {
     let path_str = path.display().to_string();
-    let needs_sudo = path_str.starts_with("/etc/")
-        || path_str.starts_with("/var/")
-        || path_str.starts_with("/root/");
+    let needs_sudo = path_requires_privilege_escalation(path);
 
     if needs_sudo {
         // Write to temp file, then copy with sudo to preserve permissions
@@ -40,7 +39,7 @@ pub fn write_file_with_escalation(
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "/".to_string());
 
-        let mkdir_args = vec!["mkdir", "-p", &parent_str];
+        let mkdir_args = vec!["-E", "mkdir", "-p", &parent_str];
         let mkdir_result = runner.run_with_env_io("sudo", &mkdir_args, &[], io_mode);
 
         if mkdir_result.is_err()
@@ -54,14 +53,14 @@ pub fn write_file_with_escalation(
         }
 
         // Copy temp file to target with sudo
-        let copy_args = vec!["cp", &temp_path, &path_str];
+        let copy_args = vec!["-E", "cp", &temp_path, &path_str];
 
         match runner.run_with_env_io("sudo", &copy_args, &[], io_mode) {
             Ok(output) if output.status.success() => {
                 // Set final permissions with sudo if mode was specified
                 let final_status = if let Some(m) = mode {
                     let mode_str = format!("{:o}", m);
-                    let chmod_args = vec!["chmod", &mode_str, &path_str];
+                    let chmod_args = vec!["-E", "chmod", &mode_str, &path_str];
                     match runner.run_with_env_io("sudo", &chmod_args, &[], io_mode) {
                         Ok(output) if output.status.success() => OperationStatus::Succeeded,
                         _ => OperationStatus::Failed,

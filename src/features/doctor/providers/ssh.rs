@@ -1,11 +1,15 @@
-use std::fs;
+use std::path::Path;
+
+use crate::core::doctor::DoctorContext;
+use crate::runner::read::read_file_with_escalation;
 
 use super::super::report::{CheckStatus, DoctorCheck};
 
 const PATH_SSHD: &str = "/etc/ssh/sshd_config";
 
-pub fn contribute() -> Vec<DoctorCheck> {
-    match fs::read_to_string(PATH_SSHD) {
+pub fn contribute(ctx: &DoctorContext) -> Vec<DoctorCheck> {
+    let path = Path::new(PATH_SSHD);
+    match read_file_with_escalation(ctx.runner, path, ctx.io_mode) {
         Ok(content) => {
             let interesting: Vec<&str> = content
                 .lines()

@@ -1,5 +1,6 @@
 use crate::cli::BootstrapInfisicalCommand;
 use crate::cli::GlobalOpts;
+use crate::core::elevation::PrivilegeContext;
 use crate::features::bootstrap::infisical::execute;
 use crate::features::bootstrap::infisical::human;
 use crate::features::bootstrap::infisical::input;
@@ -49,7 +50,8 @@ pub fn run(opts: BootstrapInfisicalCommand, global: &GlobalOpts) -> Result<ExitS
 
     // Execute plan
     let runner = LocalRunner;
-    let report = execute::execute_plan(&runner, operations, io_mode);
+    let report =
+        execute::execute_plan(&runner, PrivilegeContext::ELEVATED_OPS, operations, io_mode);
 
     // Format output
     let style = Style::for_human(global.color);

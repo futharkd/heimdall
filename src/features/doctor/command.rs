@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use crate::cli::{DoctorCommand, GlobalOpts, OutputFormat};
 use crate::core::doctor::DoctorContext;
+use crate::core::elevation::PrivilegeContext;
 use crate::output::Style;
 use crate::runner::{IoMode, LocalRunner};
 use crate::runtime::ExitStatus;
@@ -15,6 +16,7 @@ pub fn run(opts: DoctorCommand, global: &GlobalOpts) -> Result<ExitStatus> {
     let ctx = DoctorContext {
         runner: &runner,
         io_mode,
+        privilege: PrivilegeContext::USER_SESSION,
     };
     let report = registry::build_report(&ctx);
 

@@ -7,11 +7,10 @@ use crate::core::operation::{OperationKind, PlannedOperation};
 fn kubectl_verify_operation() -> PlannedOperation {
     PlannedOperation {
         id: "k3s_kubectl_get_nodes",
-        description: "Verify cluster API (`sudo k3s kubectl get nodes -o name`)".to_string(),
+        description: "Verify cluster API (`k3s kubectl get nodes -o name`)".to_string(),
         kind: OperationKind::Shell {
-            command: "sudo".to_string(),
+            command: "k3s".to_string(),
             args: vec![
-                "k3s".to_string(),
                 "kubectl".to_string(),
                 "get".to_string(),
                 "nodes".to_string(),

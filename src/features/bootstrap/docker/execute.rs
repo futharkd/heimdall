@@ -1,3 +1,4 @@
+use crate::core::elevation::PrivilegeContext;
 use crate::core::operation::PlannedOperation;
 use crate::features::bootstrap::docker::input::DockerConfig;
 use crate::features::bootstrap::docker::report::BootstrapDockerReport;
@@ -9,7 +10,14 @@ pub fn execute_plan(
     operations: &[PlannedOperation],
     io_mode: IoMode,
 ) -> BootstrapDockerReport {
-    let results = shared_execute(operations, runner, config.dry_run, false, io_mode);
+    let results = shared_execute(
+        operations,
+        runner,
+        PrivilegeContext::ELEVATED_OPS,
+        config.dry_run,
+        false,
+        io_mode,
+    );
     BootstrapDockerReport {
         operations: results,
     }

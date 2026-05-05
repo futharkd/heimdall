@@ -74,7 +74,8 @@ where
         SudoPolicy::None => runner.run_with_env_io(program, args, env, mode),
 
         SudoPolicy::AlwaysSudo => {
-            let mut sudo_args = vec![program];
+            // Preserve the invoking user's environment for the elevated child (e.g. `KUBECONFIG`).
+            let mut sudo_args = vec!["-E", program];
             sudo_args.extend_from_slice(args);
             runner.run_with_env_io("sudo", &sudo_args, env, mode)
         }
@@ -100,9 +101,68 @@ where
             };
 
             if should_retry {
-                let mut sudo_args = vec![program];
+                let mut sudo_args = vec!["-E", program];
                 sudo_args.extend_from_slice(args);
                 runner.run_with_env_io("sudo", &sudo_args, env, mode)
+            } else {
+                Ok(output)
+            }
+        }
+    }
+}
+
+/// Like [`run_with_env_io_sudo`] but feeds `stdin_data` to the child (used by shell ops with stdin).
+#[allow(clippy::too_many_arguments)]
+pub fn run_with_stdin_sudo<F>(
+    runner: &dyn CommandRunner,
+    program: &str,
+    args: &[&str],
+    env: &[(&str, &str)],
+    stdin_data: &str,
+    mode: IoMode,
+    policy: SudoPolicy<'_, F>,
+    op_label: &str,
+) -> Result<Output>
+where
+    F: FnMut(&str) -> Result<bool>,
+{
+    match policy {
+        SudoPolicy::None => runner.run_with_stdin(program, args, env, stdin_data, mode),
+
+        SudoPolicy::AlwaysSudo => {
+            let mut sudo_args: Vec<&str> = Vec::with_capacity(2 + args.len());
+            sudo_args.push("-E");
+            sudo_args.push(program);
+            sudo_args.extend_from_slice(args);
+            runner.run_with_stdin("sudo", &sudo_args, env, stdin_data, mode)
+        }
+
+        SudoPolicy::SudoOnPermissionDenied {
+            elevated,
+            mut prompt,
+        } => {
+            let output = runner.run_with_stdin(program, args, env, stdin_data, mode)?;
+
+            if output.status.success() || !permission_denied_in_stderr(&output.stderr) {
+                return Ok(output);
+            }
+
+            let should_retry = if *elevated {
+                true
+            } else {
+                let approved = prompt(op_label)?;
+                if approved {
+                    *elevated = true;
+                }
+                approved
+            };
+
+            if should_retry {
+                let mut sudo_args: Vec<&str> = Vec::with_capacity(2 + args.len());
+                sudo_args.push("-E");
+                sudo_args.push(program);
+                sudo_args.extend_from_slice(args);
+                runner.run_with_stdin("sudo", &sudo_args, env, stdin_data, mode)
             } else {
                 Ok(output)
             }
@@ -257,7 +317,7 @@ mod tests {
         let calls = runner.calls();
         assert_eq!(calls.len(), 1, "should issue exactly one call");
         assert_eq!(calls[0].0, "sudo");
-        assert_eq!(calls[0].1, ["cp", "/a", "/b"]);
+        assert_eq!(calls[0].1, ["-E", "cp", "/a", "/b"]);
     }
 
     // ── SudoPolicy::SudoOnPermissionDenied ───────────────────────────────────
@@ -297,7 +357,10 @@ mod tests {
         assert_eq!(calls[0], ("cp".into(), vec!["/a".into(), "/b".into()]));
         assert_eq!(
             calls[1],
-            ("sudo".into(), vec!["cp".into(), "/a".into(), "/b".into()])
+            (
+                "sudo".into(),
+                vec!["-E".into(), "cp".into(), "/a".into(), "/b".into()]
+            )
         );
     }
 
@@ -330,6 +393,11 @@ mod tests {
         assert_eq!(prompt_calls, 0, "must not prompt when already elevated");
         let calls = runner.calls();
         assert_eq!(calls[1].0, "sudo");
+        assert_eq!(
+            calls[1].1.first().map(|s| s.as_str()),
+            Some("-E"),
+            "sudo retry must preserve env"
+        );
     }
 
     #[test]

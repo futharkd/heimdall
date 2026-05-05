@@ -1,10 +1,13 @@
+use crate::core::elevation::{PrivilegeContext, command_already_elevated};
 use crate::core::operation::{OperationResult, OperationStatus};
 use crate::features::bootstrap::infisical::plan::InfisicalPlannedOperation;
 use crate::features::bootstrap::infisical::report::BootstrapInfisicalReport;
+use crate::runner::sudo::{SudoPolicy, run_with_env_io_sudo};
 use crate::runner::{CommandRunner, IoMode};
 
 pub fn execute_plan(
     runner: &dyn CommandRunner,
+    privilege: PrivilegeContext,
     operations: Vec<InfisicalPlannedOperation>,
     io_mode: IoMode,
 ) -> BootstrapInfisicalReport {
@@ -29,11 +32,20 @@ pub fn execute_plan(
                     let env_refs: Vec<(&str, &str)> =
                         env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
 
-                    match runner.run_with_env_io(
+                    let policy = if privilege.elevate_shell && !command_already_elevated(&command) {
+                        SudoPolicy::AlwaysSudo::<fn(&str) -> anyhow::Result<bool>>
+                    } else {
+                        SudoPolicy::None::<fn(&str) -> anyhow::Result<bool>>
+                    };
+
+                    match run_with_env_io_sudo(
+                        runner,
                         &command,
                         args_refs.as_slice(),
                         env_refs.as_slice(),
                         io_mode,
+                        policy,
+                        description,
                     ) {
                         Ok(output) => {
                             if output.status.success() {

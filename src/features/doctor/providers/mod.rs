@@ -24,7 +24,7 @@ pub fn collect_checks(ctx: &DoctorContext) -> Vec<DoctorCheck> {
     checks.extend(netbird::contribute(ctx));
     checks.extend(infisical::contribute(ctx));
     checks.extend(komodo::contribute());
-    checks.extend(ssh::contribute());
+    checks.extend(ssh::contribute(ctx));
     checks.extend(firewall::contribute(ctx));
     checks
 }

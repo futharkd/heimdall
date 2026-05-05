@@ -22,9 +22,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "ensure_group",
             description: "Ensure admin group exists".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
+                command: "sh".to_string(),
                 args: vec![
-                    "sh".to_string(),
                     "-c".to_string(),
                     format!(
                         "getent group {} >/dev/null || groupadd {}",
@@ -42,9 +41,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "ensure_user",
             description: "Ensure admin user exists".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
+                command: "sh".to_string(),
                 args: vec![
-                    "sh".to_string(),
                     "-c".to_string(),
                     format!(
                         "id -u {} >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --gid {} {}",
@@ -62,9 +60,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "grant_sudo_access",
             description: "Add user to sudo/wheel group for administrator privileges".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
+                command: "sh".to_string(),
                 args: vec![
-                    "sh".to_string(),
                     "-c".to_string(),
                     format!(
                         "getent group sudo >/dev/null 2>&1 && usermod -aG sudo {user}; \
@@ -83,9 +80,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "ensure_ssh_dir",
             description: "Ensure .ssh directory and permissions".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
+                command: "install".to_string(),
                 args: vec![
-                    "install".to_string(),
                     "-d".to_string(),
                     "-m".to_string(),
                     "700".to_string(),
@@ -110,8 +106,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         id: "ensure_authorized_keys_file",
         description: "Ensure authorized_keys file exists".to_string(),
         kind: OperationKind::Shell {
-            command: "sudo".to_string(),
-            args: vec!["touch".to_string(), authorized_keys_path.clone()],
+            command: "touch".to_string(),
+            args: vec![authorized_keys_path.clone()],
             env: vec![],
             stdin_input: None,
         },
@@ -123,9 +119,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         id: "prepare_authorized_keys_temp",
         description: "Create temporary authorized_keys copy for atomic update".to_string(),
         kind: OperationKind::Shell {
-            command: "sudo".to_string(),
+            command: "cp".to_string(),
             args: vec![
-                "cp".to_string(),
                 authorized_keys_path.clone(),
                 authorized_keys_tmp_path.clone(),
             ],
@@ -141,9 +136,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "append_authorized_key",
             description: "Install allowed SSH key in temporary file if missing".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
+                command: "sh".to_string(),
                 args: vec![
-                    "sh".to_string(),
                     "-c".to_string(),
                     format!(
                         "grep -qxF '{}' {} || printf '%s\\n' '{}' >> {}",
@@ -165,12 +159,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         id: "promote_authorized_keys_temp",
         description: "Atomically replace authorized_keys with temporary file".to_string(),
         kind: OperationKind::Shell {
-            command: "sudo".to_string(),
-            args: vec![
-                "mv".to_string(),
-                authorized_keys_tmp_path,
-                authorized_keys_path.clone(),
-            ],
+            command: "mv".to_string(),
+            args: vec![authorized_keys_tmp_path, authorized_keys_path.clone()],
             env: vec![],
             stdin_input: None,
         },
@@ -183,9 +173,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         id: "set_authorized_keys_permissions",
         description: "Set authorized_keys file ownership and mode".to_string(),
         kind: OperationKind::Shell {
-            command: "sudo".to_string(),
+            command: "chown".to_string(),
             args: vec![
-                "chown".to_string(),
                 format!("{}:{}", config.user, config.group),
                 authorized_keys_path.clone(),
             ],
@@ -200,8 +189,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         id: "chmod_authorized_keys",
         description: "Set authorized_keys mode".to_string(),
         kind: OperationKind::Shell {
-            command: "sudo".to_string(),
-            args: vec!["chmod".to_string(), "600".to_string(), authorized_keys_path],
+            command: "chmod".to_string(),
+            args: vec!["600".to_string(), authorized_keys_path],
             env: vec![],
             stdin_input: None,
         },
@@ -214,8 +203,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
         id: "set_password",
         description: "Set user password via chpasswd".to_string(),
         kind: OperationKind::Shell {
-            command: "sudo".to_string(),
-            args: vec!["chpasswd".to_string()],
+            command: "chpasswd".to_string(),
+            args: vec![],
             env: vec![],
             stdin_input: Some(format!("{}:{}\n", config.user, config.password)),
         },
@@ -229,9 +218,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "disable_root_login",
             description: "Disable SSH root login in sshd_config".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
+                command: "sed".to_string(),
                 args: vec![
-                    "sed".to_string(),
                     "-i.bak".to_string(),
                     "s/^#\\?PermitRootLogin.*/PermitRootLogin no/".to_string(),
                     "/etc/ssh/sshd_config".to_string(),
@@ -250,9 +238,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "disable_password_auth",
             description: "Disable SSH password authentication in sshd_config".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
+                command: "sed".to_string(),
                 args: vec![
-                    "sed".to_string(),
                     "-i.bak".to_string(),
                     "s/^#\\?PasswordAuthentication.*/PasswordAuthentication no/".to_string(),
                     "/etc/ssh/sshd_config".to_string(),
@@ -271,8 +258,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "validate_sshd_config",
             description: "Validate SSH daemon configuration".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
-                args: vec!["sshd".to_string(), "-t".to_string()],
+                command: "sshd".to_string(),
+                args: vec!["-t".to_string()],
                 env: vec![],
                 stdin_input: None,
             },
@@ -284,12 +271,8 @@ pub fn build_plan(config: &BootstrapUserConfig) -> Result<Vec<PlannedOperation>>
             id: "reload_sshd",
             description: "Reload SSH daemon".to_string(),
             kind: OperationKind::Shell {
-                command: "sudo".to_string(),
-                args: vec![
-                    "systemctl".to_string(),
-                    "reload".to_string(),
-                    "sshd".to_string(),
-                ],
+                command: "systemctl".to_string(),
+                args: vec!["reload".to_string(), "sshd".to_string()],
                 env: vec![],
                 stdin_input: None,
             },

@@ -1,3 +1,4 @@
+use crate::core::elevation::PrivilegeContext;
 use crate::core::operation::{OperationStatus, PlannedOperation};
 use crate::runner::{CommandRunner, IoMode, executor::execute_plan as shared_execute};
 
@@ -11,7 +12,14 @@ pub fn execute_plan(
     io_mode: IoMode,
 ) -> HardenFirewallReport {
     // Convert core OperationResult to OperationResultOwned for report
-    let core_results = shared_execute(operations, runner, config.dry_run, false, io_mode);
+    let core_results = shared_execute(
+        operations,
+        runner,
+        PrivilegeContext::ELEVATED_OPS,
+        config.dry_run,
+        false,
+        io_mode,
+    );
     let results = core_results
         .into_iter()
         .map(|r| super::report::OperationResultOwned {

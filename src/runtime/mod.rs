@@ -1,3 +1,7 @@
+mod privilege_reexec;
+
+pub use privilege_reexec::maybe_privilege_reexec;
+
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

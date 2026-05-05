@@ -1,4 +1,5 @@
 pub mod executor;
+pub mod read;
 pub mod sudo;
 pub mod write;
 

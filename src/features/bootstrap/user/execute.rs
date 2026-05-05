@@ -1,3 +1,4 @@
+use crate::core::elevation::PrivilegeContext;
 use crate::core::operation::PlannedOperation;
 use crate::runner::{CommandRunner, IoMode, executor::execute_plan as shared_execute};
 
@@ -13,6 +14,7 @@ pub fn execute_plan(
     let results = shared_execute(
         operations,
         runner,
+        PrivilegeContext::ELEVATED_OPS,
         config.dry_run,
         config.confirmed,
         io_mode,

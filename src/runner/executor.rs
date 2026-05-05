@@ -5,16 +5,19 @@ use std::process::Command;
 
 use anyhow::Result;
 
+use crate::core::elevation::{PrivilegeContext, command_already_elevated};
 use crate::core::operation::{
     OperationKind, OperationResult, OperationStatus, PlannedOperation, VerifyStep,
 };
 use crate::features::operations::run_ensure_package;
+use crate::runner::sudo::{SudoPolicy, run_with_env_io_sudo, run_with_stdin_sudo};
 
 use super::{CommandRunner, IoMode};
 
 pub fn execute_plan(
     ops: &[PlannedOperation],
     runner: &dyn CommandRunner,
+    privilege: PrivilegeContext,
     dry_run: bool,
     yes: bool,
     io_mode: IoMode,
@@ -70,6 +73,8 @@ pub fn execute_plan(
                 args,
                 env,
                 stdin_input.as_deref(),
+                privilege,
+                &op.description,
                 // Human mode defaults to hidden child output.
                 if live_ui { IoMode::Buffered } else { io_mode },
             ),
@@ -92,7 +97,9 @@ pub fn execute_plan(
             Ok(output) if output.status.success() => {
                 // Primary op succeeded; run verify if present
                 if let Some(verify) = &op.verify {
-                    if let Err(_e) = execute_verify(runner, verify, io_mode) {
+                    if let Err(_e) =
+                        execute_verify(runner, verify, privilege, io_mode, &op.description)
+                    {
                         OperationStatus::Failed
                     } else {
                         OperationStatus::Succeeded
@@ -204,21 +211,40 @@ fn format_operation_detail(kind: &OperationKind) -> String {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn execute_shell(
     runner: &dyn CommandRunner,
     command: &str,
     args: &[String],
     env: &[(String, String)],
     stdin_input: Option<&str>,
+    privilege: PrivilegeContext,
+    op_label: &str,
     io_mode: IoMode,
 ) -> Result<std::process::Output> {
+    let policy = shell_policy(privilege, command);
     let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
     let env_refs: Vec<(&str, &str)> = env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
 
     if let Some(stdin) = stdin_input {
-        runner.run_with_stdin(command, &args_refs, &env_refs, stdin, io_mode)
+        run_with_stdin_sudo(
+            runner, command, &args_refs, &env_refs, stdin, io_mode, policy, op_label,
+        )
     } else {
-        runner.run_with_env_io(command, &args_refs, &env_refs, io_mode)
+        run_with_env_io_sudo(
+            runner, command, &args_refs, &env_refs, io_mode, policy, op_label,
+        )
+    }
+}
+
+fn shell_policy(
+    privilege: PrivilegeContext,
+    command: &str,
+) -> SudoPolicy<'_, fn(&str) -> Result<bool>> {
+    if privilege.elevate_shell && !command_already_elevated(command) {
+        SudoPolicy::AlwaysSudo
+    } else {
+        SudoPolicy::None
     }
 }
 
@@ -254,9 +280,25 @@ fn execute_inherit_io(command: &str, args: &[String]) -> Result<std::process::Ou
     })
 }
 
-fn execute_verify(runner: &dyn CommandRunner, verify: &VerifyStep, io_mode: IoMode) -> Result<()> {
+fn execute_verify(
+    runner: &dyn CommandRunner,
+    verify: &VerifyStep,
+    privilege: PrivilegeContext,
+    io_mode: IoMode,
+    parent_op_label: &str,
+) -> Result<()> {
     let args_refs: Vec<&str> = verify.args.iter().map(|s| s.as_str()).collect();
-    let output = runner.run_with_env_io(&verify.command, &args_refs, &[], io_mode)?;
+    let label = format!("{parent_op_label} (verify: {})", verify.description);
+    let policy = shell_policy(privilege, &verify.command);
+    let output = run_with_env_io_sudo(
+        runner,
+        &verify.command,
+        &args_refs,
+        &[],
+        io_mode,
+        policy,
+        &label,
+    )?;
     if output.status.success() {
         Ok(())
     } else {

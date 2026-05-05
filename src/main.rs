@@ -20,6 +20,7 @@ fn main() {
 fn run() -> Result<()> {
     runtime::init_tracing();
     let args = cli::Cli::parse();
+    runtime::maybe_privilege_reexec()?;
     let status = commands::dispatch(args)?;
     std::process::exit(status.code());
 }

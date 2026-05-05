@@ -1,5 +1,6 @@
 use crate::cli::BootstrapKomodoCommand;
 use crate::cli::GlobalOpts;
+use crate::core::elevation::PrivilegeContext;
 use crate::features::bootstrap::komodo::execute;
 use crate::features::bootstrap::komodo::human;
 use crate::features::bootstrap::komodo::input;
@@ -37,7 +38,13 @@ pub fn run(opts: BootstrapKomodoCommand, global: &GlobalOpts) -> Result<ExitStat
 
     // Execute plan
     let runner = LocalRunner;
-    let report = execute::execute_plan(&runner, config, operations, io_mode);
+    let report = execute::execute_plan(
+        &runner,
+        PrivilegeContext::ELEVATED_OPS,
+        config,
+        operations,
+        io_mode,
+    );
 
     // Format output
     let style = Style::for_human(global.color);

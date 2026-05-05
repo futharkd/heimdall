@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.8](https://github.com/futharkd/heimdall/compare/v0.8.7...v0.8.8) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** use better command for access checks ([a6e53ca](https://github.com/futharkd/heimdall/commit/a6e53ca26dd0c03323abdc7f902683e9be7898fd))
+
 ## [0.8.7](https://github.com/futharkd/heimdall/compare/v0.8.6...v0.8.7) (2026-05-05)
 
 

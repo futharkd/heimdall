@@ -4,6 +4,7 @@ use inquire::Text;
 use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process::Command;
+use tracing::debug;
 
 #[derive(Debug, Clone)]
 pub enum InfisicalPlannedOperation {
@@ -40,8 +41,14 @@ fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
 }
 
 pub(crate) fn parse_folder_names(stdout_json: &str) -> Result<Vec<String>> {
-    let folders = serde_json::from_str::<Vec<serde_json::Value>>(stdout_json)
-        .map_err(|_| anyhow::anyhow!("failed to parse folder list JSON"))?;
+    let folders = serde_json::from_str::<Vec<serde_json::Value>>(stdout_json).map_err(|e| {
+        let payload_preview = stdout_json.chars().take(200).collect::<String>();
+        anyhow::anyhow!(
+            "failed to parse folder list JSON: {} (payload: {})",
+            e,
+            payload_preview
+        )
+    })?;
     Ok(folders
         .iter()
         .filter_map(|f| {
@@ -116,6 +123,11 @@ fn discover_folders_at(
     depth: u8,
 ) -> Vec<String> {
     if depth >= 10 {
+        debug!(
+            infisical_path = %infisical_path,
+            depth = depth,
+            "folder discovery reached max depth limit"
+        );
         return Vec::new();
     }
 
@@ -138,17 +150,50 @@ fn discover_folders_at(
         .output()
     {
         Ok(out) => out,
-        Err(_) => return Vec::new(),
+        Err(e) => {
+            debug!(
+                error = %e,
+                infisical_path = %infisical_path,
+                depth = depth,
+                "infisical folders discovery command execution failed"
+            );
+            return Vec::new();
+        }
     };
 
     if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let exit_code = output.status.code();
+        debug!(
+            exit_code = ?exit_code,
+            stderr = %stderr,
+            infisical_path = %infisical_path,
+            depth = depth,
+            "infisical folders command returned non-zero exit code"
+        );
         return Vec::new();
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let child_names = match parse_folder_names(&stdout) {
-        Ok(names) => names,
-        Err(_) => return Vec::new(),
+        Ok(names) => {
+            debug!(
+                count = names.len(),
+                infisical_path = %infisical_path,
+                depth = depth,
+                "successfully discovered folders"
+            );
+            names
+        }
+        Err(e) => {
+            debug!(
+                error = %e,
+                infisical_path = %infisical_path,
+                depth = depth,
+                "failed to parse folder list JSON response"
+            );
+            return Vec::new();
+        }
     };
 
     let mut result = Vec::new();
@@ -419,4 +464,78 @@ pub fn build_plan(
     });
 
     Ok(ops)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_folder_names_empty_list() {
+        let result = parse_folder_names("[]");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_parse_folder_names_single_folder() {
+        let json = r#"[{"folderName": "prod"}]"#;
+        let result = parse_folder_names(json);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), vec!["prod"]);
+    }
+
+    #[test]
+    fn test_parse_folder_names_multiple_folders() {
+        let json = r#"[
+            {"folderName": "prod"},
+            {"folderName": "staging"},
+            {"folderName": "dev"}
+        ]"#;
+        let result = parse_folder_names(json);
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            vec!["prod".to_string(), "staging".to_string(), "dev".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_parse_folder_names_invalid_json() {
+        let result = parse_folder_names("not valid json {");
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("failed to parse folder list JSON"));
+    }
+
+    #[test]
+    fn test_parse_folder_names_missing_folder_name_field() {
+        let json = r#"[{"name": "prod"}, {"folderName": "staging"}]"#;
+        let result = parse_folder_names(json);
+        assert!(result.is_ok());
+        let folders = result.unwrap();
+        // Only staging should be included because the first object lacks folderName
+        assert_eq!(folders, vec!["staging".to_string()]);
+    }
+
+    #[test]
+    fn test_parse_folder_names_null_values() {
+        let json = r#"[{"folderName": null}, {"folderName": "valid"}]"#;
+        let result = parse_folder_names(json);
+        assert!(result.is_ok());
+        let folders = result.unwrap();
+        // Only valid folder should be included
+        assert_eq!(folders, vec!["valid".to_string()]);
+    }
+
+    #[test]
+    fn test_parse_folder_names_includes_payload_in_error() {
+        let invalid_json = "this is not json";
+        let result = parse_folder_names(invalid_json);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        // Error should contain both the parse error and a preview of the payload
+        assert!(err_msg.contains("failed to parse folder list JSON"));
+        assert!(err_msg.contains("this is not json"));
+    }
 }

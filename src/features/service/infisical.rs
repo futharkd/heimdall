@@ -123,6 +123,19 @@ fn run_sync(opts: ServiceInfisicalCommand, global: &crate::cli::GlobalOpts) -> R
             address, project_id, &token, node_name,
         );
 
+    // SAFETY: Never overwrite real folders with empty discovery result
+    if discovered_folders.is_empty() && !saved_state.folders.is_empty() {
+        eprintln!(
+            "warning: folder discovery returned empty result, but saved state has {} folders",
+            saved_state.folders.len()
+        );
+        eprintln!("warning: this may indicate an authentication or API error");
+        eprintln!("warning: not updating config to preserve existing folders");
+        eprintln!("hint: run `RUST_LOG=debug heimdall service infisical sync` for diagnostics");
+        println!("No folder changes detected (using saved state).");
+        return Ok(ExitStatus::Success);
+    }
+
     if discovered_folders == saved_state.folders {
         println!("No folder changes detected.");
         return Ok(ExitStatus::Success);

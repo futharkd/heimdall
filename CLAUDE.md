@@ -1,7 +1,7 @@
 # Heimdall Project Guide
 
 **Repository**: `https://gitlab.com/futharkd/heimdall`  
-**Binary**: `heimdall` (Rust CLI for infrastructure bootstrap, verify, harden, update, reset)  
+**Binary**: `heimdall` (Rust CLI for infrastructure bootstrap, doctor, harden, update, reset)  
 **Edition**: 2024 | **MSRV**: 1.94 | **License**: MIT
 
 ## Overview
@@ -9,7 +9,7 @@
 `heimdall` is a modular CLI for Linux infrastructure workflows with safety-first design: dry-run support, explicit confirmations for risky operations, structured JSON output, and deterministic exit codes.
 
 Commands:
-- `verify doctor` — read-only environment checks
+- `doctor` — read-only bootstrap/harden diagnostics
 - `bootstrap user` — admin user + SSH keys (idempotent)
 - `bootstrap netbird` — NetBird install + join (delegates to official installer)
 - `bootstrap k3s` — k3s cluster install (idempotent; probes `command -v k3s` before reinstall)
@@ -30,7 +30,7 @@ src/
 ├── core/                   # shared types (Operation, Status, Plan, Report)
 ├── features/               # feature-first module tree
 │   ├── bootstrap/          # bootstrap user/netbird/k3s/flux
-│   ├── verify/             # verify doctor
+│   ├── doctor/             # doctor (registry + providers)
 │   ├── update/             # update self
 │   └── reset/              # reset cluster
 ├── runner/mod.rs           # CommandRunner, IoMode (LiveTee for live I/O)
@@ -67,7 +67,7 @@ cargo test --all-targets --all-features
 
 ```bash
 cargo build --release
-./target/release/heimdall verify doctor
+./target/release/heimdall doctor
 ./target/release/heimdall --help
 ```
 
@@ -202,6 +202,6 @@ cargo build --release
 cargo test bootstrap::flux --lib
 
 # Try a command
-./target/release/heimdall verify doctor --output json
+./target/release/heimdall doctor --output json
 ./target/release/heimdall bootstrap user --help
 ```

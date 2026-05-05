@@ -66,12 +66,12 @@ pub struct Cli {
 pub enum Command {
     /// Workflow: install and configure infrastructure components (k3s, Flux, NetBird, user + SSH).
     Bootstrap(Box<BootstrapCommand>),
+    /// Workflow: read-only diagnostics for bootstrap and hardening state.
+    Doctor(DoctorCommand),
     /// Workflow: harden infrastructure security (SSH config, firewall, etc.).
     Harden(HardenCommand),
     /// Workflow: reset infrastructure to initial state (k3s cluster wipe).
     Reset(ResetCommand),
-    /// Workflow: verify infrastructure health and configuration (read-only checks).
-    Verify(VerifyCommand),
     /// Workflow: replace the running heimdall binary with a newer version from the package registry.
     Update(UpdateCommand),
 }
@@ -586,25 +586,13 @@ pub struct HardenCommand {
     pub action: HardenAction,
 }
 
-#[derive(Debug, Subcommand)]
-pub enum VerifyAction {
-    /// Run environment diagnostics (cargo, git, current working directory accessibility).
-    Doctor(VerifyDoctorCommand),
-}
-
 #[derive(Debug, clap::Args)]
-pub struct VerifyCommand {
-    #[command(subcommand)]
-    pub action: VerifyAction,
-}
-
-#[derive(Debug, clap::Args)]
-#[command(about = "Run environment diagnostics and report infrastructure health.")]
+#[command(about = "Read-only diagnostics for persisted config and bootstrap/harden probes.")]
 #[command(
-    long_about = "Non-mutating checks: cargo availability, current working directory accessibility, git repository presence. \
+    long_about = "Non-mutating checks: Heimdall config snapshot, k3s/Docker/Flux/NetBird/Infisical/Komodo signals, SSH and firewall hints. \
 Exit: 0 if no failures, 1 if any check fails. Supports --output json for structured results."
 )]
-pub struct VerifyDoctorCommand {
+pub struct DoctorCommand {
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     pub output: OutputFormat,
 }

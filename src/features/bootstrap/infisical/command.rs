@@ -4,7 +4,7 @@ use crate::features::bootstrap::infisical::execute;
 use crate::features::bootstrap::infisical::human;
 use crate::features::bootstrap::infisical::input;
 use crate::features::bootstrap::infisical::plan;
-use crate::output::Style;
+use crate::output::{Style, execution_footer_line};
 use crate::runner::IoMode;
 use crate::runner::LocalRunner;
 use crate::runtime::ExitStatus;
@@ -28,15 +28,23 @@ pub fn run(opts: BootstrapInfisicalCommand, global: &GlobalOpts) -> Result<ExitS
     }
 
     // Validate inputs
-    crate::features::bootstrap::infisical::validate::validate_address(&config.address)?;
+    crate::core::validation::ensure_valid(
+        &crate::features::bootstrap::infisical::validate::AddressValidator {
+            address: &config.address,
+        },
+    )?;
 
     // Build plan
-    let operations = plan::build_plan(config)?;
+    let artifacts = plan::resolve_plan_artifacts(config)?;
+    let operations = plan::build_plan(config, &artifacts)?;
 
     // Select I/O mode
-    let io_mode = match config.output {
-        crate::cli::OutputFormat::Human if !config.dry_run => IoMode::LiveTee,
-        _ => IoMode::Buffered,
+    let live_execution =
+        matches!(config.output, crate::cli::OutputFormat::Human) && !config.dry_run;
+    let io_mode = if live_execution {
+        IoMode::LiveTee
+    } else {
+        IoMode::Buffered
     };
 
     // Execute plan
@@ -47,7 +55,11 @@ pub fn run(opts: BootstrapInfisicalCommand, global: &GlobalOpts) -> Result<ExitS
     let style = Style::for_human(global.color);
     match config.output {
         crate::cli::OutputFormat::Human => {
-            print!("{}", human::format_report_human(&report, &style));
+            if live_execution {
+                println!("{}", execution_footer_line(&report.operations));
+            } else {
+                print!("{}", human::format_report_human(&report, &style));
+            }
         }
         crate::cli::OutputFormat::Json => {
             println!("{}", serde_json::to_string_pretty(&report)?);

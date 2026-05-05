@@ -4,7 +4,6 @@ use crate::features::bootstrap::infisical::validate;
 use anyhow::Result;
 use inquire::{Select, Text};
 use std::io::IsTerminal;
-use std::process::Command;
 
 #[derive(Debug, Clone)]
 pub struct BootstrapInfisicalConfig {
@@ -216,147 +215,6 @@ fn resolve_address(opts: &BootstrapInfisicalCommand, saved: &InfisicalState) -> 
     }
 }
 
-fn universal_auth_token(client_id: &str, client_secret: &str, address: &str) -> Result<String> {
-    let output = Command::new("infisical")
-        .args([
-            "login",
-            "--method=universal-auth",
-            "--plain",
-            "--silent",
-            "--domain",
-            address,
-            "--client-id",
-            client_id,
-            "--client-secret",
-            client_secret,
-        ])
-        .output()
-        .map_err(|e| anyhow::anyhow!("failed to invoke `infisical login`: {e}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow::anyhow!(
-            "universal auth login failed: {}",
-            stderr.trim()
-        ));
-    }
-
-    let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if token.is_empty() {
-        Err(anyhow::anyhow!(
-            "universal auth login returned an empty token"
-        ))
-    } else {
-        Ok(token)
-    }
-}
-
-fn discover_folders(
-    project_id: &str,
-    node_name: &str,
-    token: &str,
-    address: &str,
-) -> Result<Vec<String>> {
-    let output = Command::new("infisical")
-        .args([
-            "secrets",
-            "folders",
-            "get",
-            "--domain",
-            address,
-            "--projectId",
-            project_id,
-            "--path",
-            &format!("/{}", node_name),
-            "--token",
-            token,
-            "--output",
-            "json",
-        ])
-        .output();
-
-    match output {
-        Ok(output) if output.status.success() => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            match serde_json::from_str::<Vec<serde_json::Value>>(&stdout) {
-                Ok(folders) => {
-                    let names: Vec<String> = folders
-                        .iter()
-                        .filter_map(|f| {
-                            f.get("folderName")
-                                .and_then(|n| n.as_str())
-                                .map(String::from)
-                        })
-                        .collect();
-                    Ok(names)
-                }
-                Err(_) => Err(anyhow::anyhow!("failed to parse folder list JSON")),
-            }
-        }
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(anyhow::anyhow!(
-                "folder discovery failed: {}",
-                stderr.trim()
-            ))
-        }
-        Err(e) => Err(anyhow::anyhow!("failed to invoke `infisical`: {e}")),
-    }
-}
-
-fn resolve_folders(
-    opts: &BootstrapInfisicalCommand,
-    project_id: &str,
-    node_name: &str,
-    client_id: &str,
-    client_secret: &str,
-    address: &str,
-) -> Result<Vec<String>> {
-    if !opts.folders.is_empty() {
-        return Ok(opts.folders.clone());
-    }
-
-    let discovery_result = universal_auth_token(client_id, client_secret, address)
-        .and_then(|token| discover_folders(project_id, node_name, &token, address));
-
-    match discovery_result {
-        Ok(folders) => {
-            if folders.is_empty() {
-                eprintln!("No subfolders discovered under /{node_name}; using root only.");
-            } else {
-                eprintln!(
-                    "Discovered {} folder(s) under /{node_name}: {}",
-                    folders.len(),
-                    folders.join(", ")
-                );
-            }
-            Ok(folders)
-        }
-        Err(err) => {
-            eprintln!("warning: folder discovery failed: {err}");
-
-            if !std::io::stdin().is_terminal() {
-                return Ok(vec![]);
-            }
-
-            let input = map_inquire(
-                Text::new("Enter subfolder names (comma-separated), or leave blank for root only:")
-                    .prompt(),
-            )?;
-            let trimmed = input.trim();
-            if trimmed.is_empty() {
-                Ok(vec![])
-            } else {
-                Ok(trimmed
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect())
-            }
-        }
-    }
-}
-
 pub fn resolve_inputs(opts: BootstrapInfisicalCommand) -> Result<ResolvedInfisicalInputs> {
     let saved = crate::config::load()
         .ok()
@@ -375,14 +233,8 @@ pub fn resolve_inputs(opts: BootstrapInfisicalCommand) -> Result<ResolvedInfisic
     let client_id = resolve_client_id(&opts)?;
     let client_secret = resolve_client_secret(&opts)?;
 
-    let folders = resolve_folders(
-        &opts,
-        &project_id,
-        &node_name,
-        &client_id,
-        &client_secret,
-        &address,
-    )?;
+    // Folder discovery moved to planning artifacts stage.
+    let folders = opts.folders.clone();
 
     let secrets_dir = opts
         .secrets_dir

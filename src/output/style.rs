@@ -69,6 +69,14 @@ impl Style {
         self.wrap("\x1b[36m", text).into_owned()
     }
 
+    /// Cyan title + dim rule for human command headers (`heimdall <cmd>`).
+    pub fn command_heading_block(&self, title: &str) -> String {
+        let rule = "─".repeat(48);
+        let title_line = self.cyan(title);
+        let rule_line = self.dim(&rule);
+        ["", title_line.as_str(), rule_line.as_str(), ""].join("\n")
+    }
+
     /// Short status token for operation lines (PLAN / OK / FAIL / SKIP).
     pub fn status_token(&self, label: &str, tone: StatusTone) -> String {
         let raw = format!("[{label}]");

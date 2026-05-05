@@ -4,7 +4,7 @@ use crate::features::bootstrap::komodo::execute;
 use crate::features::bootstrap::komodo::human;
 use crate::features::bootstrap::komodo::input;
 use crate::features::bootstrap::komodo::plan;
-use crate::output::Style;
+use crate::output::{Style, execution_footer_line};
 use crate::runner::IoMode;
 use crate::runner::LocalRunner;
 use crate::runtime::ExitStatus;
@@ -27,9 +27,12 @@ pub fn run(opts: BootstrapKomodoCommand, global: &GlobalOpts) -> Result<ExitStat
     let operations = plan::build_plan(config)?;
 
     // Select I/O mode (use Buffered for dry-run or JSON output)
-    let io_mode = match config.output {
-        crate::cli::OutputFormat::Human if !config.dry_run => IoMode::LiveTee,
-        _ => IoMode::Buffered,
+    let live_execution =
+        matches!(config.output, crate::cli::OutputFormat::Human) && !config.dry_run;
+    let io_mode = if live_execution {
+        IoMode::LiveTee
+    } else {
+        IoMode::Buffered
     };
 
     // Execute plan
@@ -40,7 +43,11 @@ pub fn run(opts: BootstrapKomodoCommand, global: &GlobalOpts) -> Result<ExitStat
     let style = Style::for_human(global.color);
     match config.output {
         crate::cli::OutputFormat::Human => {
-            print!("{}", human::format_report_human(&report, &style));
+            if live_execution {
+                println!("{}", execution_footer_line(&report.operations));
+            } else {
+                print!("{}", human::format_report_human(&report, &style));
+            }
         }
         crate::cli::OutputFormat::Json => {
             println!("{}", serde_json::to_string_pretty(&report)?);

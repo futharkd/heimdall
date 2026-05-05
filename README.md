@@ -1,12 +1,12 @@
 # heimdall
 
-Rust CLI for **bootstrap**, **verify**, and **self-update** on Linux (x86_64 for prebuilt binaries and `heimdall update`).
+Rust CLI for **bootstrap**, **doctor**, **harden**, and **self-update** on Linux (x86_64 for prebuilt binaries and `heimdall update`).
 
 ## Commands
 
 | Command | Purpose |
 |--------|---------|
-| `heimdall verify doctor` | Read-only environment checks |
+| `heimdall doctor` | Read-only bootstrap/harden diagnostics |
 | `heimdall bootstrap user` | Admin user + SSH `authorized_keys` |
 | `heimdall bootstrap netbird` | Official NetBird `install.sh`, join, status checks |
 | `heimdall bootstrap k3s` | Official get.k3s.io install, optional verify |
@@ -33,9 +33,9 @@ For private releases or rate limits, set **`GITHUB_TOKEN`** before `curl` (same 
 ## Quick examples
 
 ```bash
-heimdall verify doctor
-heimdall verify doctor --output json
-heimdall --color never verify doctor
+heimdall doctor
+heimdall doctor --output json
+heimdall --color never doctor
 ```
 
 ## Global CLI behavior

@@ -25,7 +25,7 @@ See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) for the exact job def
 
 - **`src/cli`** — clap models and the subcommand tree
 - **`src/commands`** — thin dispatch only; no heavy logic here
-- **`src/features`** — behavior per domain (`bootstrap/*`, `verify/*`, `update`, …). New bootstrap flows usually mirror an existing folder: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
+- **`src/features`** — behavior per domain (`bootstrap/*`, `doctor`, `update`, …). New bootstrap flows usually mirror an existing folder: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
 - **`src/core`** — shared operation / report types used by plans
 - **`src/runner`** — `CommandRunner` and subprocess I/O (`IoMode::LiveTee`, etc.)
 - **`src/runtime`** — tracing bootstrap and exit status mapping

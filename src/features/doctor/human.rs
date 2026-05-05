@@ -4,11 +4,7 @@ use super::report::{CheckStatus, DoctorReport};
 
 pub fn format_report_human(report: &DoctorReport, style: &Style) -> String {
     let mut lines = Vec::with_capacity(report.checks.len() + 4);
-    lines.push(String::new());
-    lines.push(style.cyan("heimdall verify doctor"));
-    let rule = "─".repeat(48);
-    lines.push(style.dim(&rule));
-    lines.push(String::new());
+    lines.push(style.command_heading_block("heimdall doctor"));
 
     for check in &report.checks {
         let (label, tone) = match check.status {

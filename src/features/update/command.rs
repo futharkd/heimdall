@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use crate::cli::{GlobalOpts, OutputFormat, UpdateCommand};
-use crate::output::Style;
+use crate::output::{Style, execution_footer_line};
 use crate::runner::{IoMode, LocalRunner};
 use crate::runtime::ExitStatus;
 
@@ -13,9 +13,11 @@ pub fn run(opts: UpdateCommand, global: &GlobalOpts) -> Result<ExitStatus> {
     let config = resolve_inputs(opts)?;
     let output = config.output;
     let runner = LocalRunner;
-    let io_mode = match (output, config.dry_run) {
-        (OutputFormat::Human, false) => IoMode::LiveTee,
-        _ => IoMode::Buffered,
+    let live_execution = matches!((output, config.dry_run), (OutputFormat::Human, false));
+    let io_mode = if live_execution {
+        IoMode::LiveTee
+    } else {
+        IoMode::Buffered
     };
     let report = execute_update(&runner, &config, io_mode);
 
@@ -25,6 +27,9 @@ pub fn run(opts: UpdateCommand, global: &GlobalOpts) -> Result<ExitStatus> {
     };
 
     match output {
+        OutputFormat::Human if live_execution => {
+            println!("{}", execution_footer_line(&report.operations))
+        }
         OutputFormat::Human => println!("{}", format_report_human(&report, &style)),
         OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
     }

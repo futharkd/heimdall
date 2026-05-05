@@ -1,14 +1,12 @@
 use anyhow::Result;
 
-use crate::cli::{BootstrapAction, Command, HardenAction, ResetAction, VerifyAction};
-use crate::features::{bootstrap, harden, reset, update, verify};
+use crate::cli::{BootstrapAction, Command, HardenAction, ResetAction};
+use crate::features::{bootstrap, doctor, harden, reset, update};
 use crate::runtime::ExitStatus;
 
 pub fn dispatch(cli: crate::cli::Cli) -> Result<ExitStatus> {
     match cli.command {
-        Command::Verify(cmd) => match cmd.action {
-            VerifyAction::Doctor(opts) => verify::doctor::command::run(opts, &cli.global),
-        },
+        Command::Doctor(opts) => doctor::command::run(opts, &cli.global),
         Command::Bootstrap(cmd) => match cmd.action {
             BootstrapAction::Docker(opts) => bootstrap::docker::command::run(opts, &cli.global),
             BootstrapAction::Flux(opts) => bootstrap::flux::command::run(opts, &cli.global),

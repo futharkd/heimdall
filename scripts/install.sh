@@ -117,4 +117,4 @@ case ":${PATH:-}:" in
 	;;
 esac
 
-printf 'Verify with:\n  %s verify doctor\n' "$install_path"
+printf 'Verify with:\n  %s doctor\n' "$install_path"

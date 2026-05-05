@@ -13,7 +13,7 @@
 
 ## Goals
 
-- Provide explicit, task-scoped operational commands (`bootstrap`, `harden`, `verify`, `update`).
+- Provide explicit, task-scoped operational commands (`bootstrap`, `doctor`, `harden`, `update`).
 - Keep command handlers thin and push behavior into reusable modules.
 - Prefer safe defaults:
   - non-mutating verification commands
@@ -23,9 +23,10 @@
 
 ## Current command surface
 
-- `heimdall verify doctor`
+- `heimdall doctor`
   - Implemented.
-  - Performs local, non-mutating environment checks.
+  - Performs local, non-mutating checks (Heimdall config snapshot; probes for k3s, Docker, Flux namespace, NetBird, Infisical CLI, Komodo compose path; SSH `sshd_config` excerpts; firewalld activity).
+  - Probe modules live under `src/features/doctor/providers/` and are wired in `registry` / `providers::collect_checks`.
   - Supports `--output human|json`.
 - `heimdall bootstrap user`
   - Implemented.
@@ -82,7 +83,7 @@ Heimdall now uses a hybrid architecture: feature-first folders for domain logic 
   - `src/features/bootstrap/k3s`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
   - `src/features/bootstrap/flux`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`, `keygen`
   - `src/features/bootstrap/netbird`: `input`, `validate`, `plan`, `execute`, `report`, `human`, `command`
-  - `src/features/verify/doctor`: `checks`, `report`, `human`, `command`
+  - `src/features/doctor`: `providers`, `registry`, `report`, `human`, `command`
   - `src/features/update`: `package`, `checksum`, `input`, `execute`, `report`, `human`, `command`
 - `src/core`: shared execution contracts/types (operation status/results/plans).
 - `src/output`: shared `Style` / `--color` / `NO_COLOR` handling (`style.rs`); per-feature human formatting lives under `src/features/.../human.rs`.
@@ -91,18 +92,18 @@ Heimdall now uses a hybrid architecture: feature-first folders for domain logic 
 
 ## Implemented workflows
 
-### Verify doctor
+### Doctor
 
-`verify doctor` executes read-only checks and emits a structured report:
+`heimdall doctor` executes read-only checks and emits a structured report:
 
-- `cargo` availability check
-- current working directory readability
-- `.git` presence warning/pass behavior
+- Heimdall YAML config (when present): persisted harden/bootstrap summary
+- Bootstrap signals: `k3s` / `docker` / `flux-system` namespace / NetBird / `infisical` CLI / Komodo default compose path
+- Harden hints: `sshd_config` excerpts (when readable); `systemctl is-active firewalld`
 
 Exit behavior:
 
-- failure check present => exit code `1`
-- no failures => exit code `0`
+- any check with status **fail** => exit code `1`
+- otherwise => exit code `0`
 
 ### Bootstrap user
 
@@ -179,7 +180,7 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 ## Current test coverage
 
 - CLI parse tests:
-  - `verify doctor --output json`
+  - `doctor --output json`
   - `bootstrap user` flags parsing
   - `bootstrap netbird` flags parsing
   - `bootstrap k3s` flags parsing (including `--force`)
@@ -191,7 +192,7 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
   - idempotent plan semantics for user/key operations
   - stop-on-failure behavior
   - confirmation-gated risky step skipping
-- `verify doctor` feature tests:
+- `doctor` feature tests:
   - failure detection in report
 - `bootstrap netbird` feature tests:
   - plan uses official install URL and passes `NETBIRD_RELEASE` / `SKIP_UI_APP` into the install step

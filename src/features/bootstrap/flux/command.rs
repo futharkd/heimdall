@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result, bail};
 
 use crate::cli::{BootstrapFluxCommand, GlobalOpts, OutputFormat};
-use crate::output::Style;
+use crate::output::{Style, execution_footer_line};
 use crate::runner::{IoMode, LocalRunner};
 use crate::runtime::ExitStatus;
 
@@ -46,9 +46,14 @@ pub fn run(opts: BootstrapFluxCommand, global: &GlobalOpts) -> Result<ExitStatus
     }
 
     let plan = build_plan(&resolved.config)?;
-    let io_mode = match (resolved.output, resolved.config.dry_run) {
-        (OutputFormat::Human, false) => IoMode::LiveTee,
-        _ => IoMode::Buffered,
+    let live_execution = matches!(
+        (resolved.output, resolved.config.dry_run),
+        (OutputFormat::Human, false)
+    );
+    let io_mode = if live_execution {
+        IoMode::LiveTee
+    } else {
+        IoMode::Buffered
     };
     let report = execute_plan(&runner, &resolved.config, &plan, io_mode);
 
@@ -62,6 +67,9 @@ pub fn run(opts: BootstrapFluxCommand, global: &GlobalOpts) -> Result<ExitStatus
     };
 
     match resolved.output {
+        OutputFormat::Human if live_execution => {
+            println!("{}", execution_footer_line(&report.operations))
+        }
         OutputFormat::Human => println!("{}", format_report_human(&report, &style)),
         OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
     }

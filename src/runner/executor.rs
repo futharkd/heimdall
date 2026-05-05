@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::os::unix::process::ExitStatusExt;
 use std::path::Path;
 use std::process::Command;
@@ -19,6 +20,7 @@ pub fn execute_plan(
     io_mode: IoMode,
 ) -> Vec<OperationResult> {
     let mut results = Vec::new();
+    let live_ui = !dry_run && matches!(io_mode, IoMode::LiveTee) && std::io::stdout().is_terminal();
 
     for op in ops {
         // Dry-run: emit planned op with formatted detail
@@ -53,16 +55,30 @@ pub fn execute_plan(
         }
 
         // Execute primary operation
+        if live_ui {
+            println!("[RUN] {}", op.description);
+        }
         let exec_result = match &op.kind {
             OperationKind::Shell {
                 command,
                 args,
                 env,
                 stdin_input,
-            } => execute_shell(runner, command, args, env, stdin_input.as_deref(), io_mode),
-            OperationKind::EnsurePackage { package } => {
-                run_ensure_package(runner, package, io_mode, &op.description)
-            }
+            } => execute_shell(
+                runner,
+                command,
+                args,
+                env,
+                stdin_input.as_deref(),
+                // Human mode defaults to hidden child output.
+                if live_ui { IoMode::Buffered } else { io_mode },
+            ),
+            OperationKind::EnsurePackage { package } => run_ensure_package(
+                runner,
+                package,
+                if live_ui { IoMode::Buffered } else { io_mode },
+                &op.description,
+            ),
             OperationKind::WriteFile {
                 path,
                 content,
@@ -95,10 +111,33 @@ pub fn execute_plan(
             }
         };
 
-        let detail = match &exec_result {
-            Ok(output) => String::from_utf8_lossy(&output.stderr).to_string(),
+        let mut detail = match &exec_result {
+            Ok(output) => {
+                if output.status.success() {
+                    String::new()
+                } else {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let mut rendered = format!("exit: {}", output.status);
+                    if !stdout.trim().is_empty() {
+                        rendered.push_str("\nstdout:\n");
+                        rendered.push_str(stdout.trim_end());
+                    }
+                    if !stderr.trim().is_empty() {
+                        rendered.push_str("\nstderr:\n");
+                        rendered.push_str(stderr.trim_end());
+                    }
+                    rendered
+                }
+            }
             Err(_e) => "operation failed".to_string(),
         };
+        if !op.kind.is_read_only() && op.validation_slot().is_none() {
+            if !detail.is_empty() {
+                detail.push('\n');
+            }
+            detail.push_str("warning: operation has no validation step");
+        }
 
         results.push(OperationResult {
             id: op.id,
@@ -106,6 +145,21 @@ pub fn execute_plan(
             status,
             detail,
         });
+        if live_ui {
+            let marker = match status {
+                OperationStatus::Succeeded => "[OK]",
+                OperationStatus::Skipped => "[SKIP]",
+                OperationStatus::Planned => "[PLAN]",
+                OperationStatus::Failed => "[FAIL]",
+            };
+            println!("{marker} {}", op.description);
+            if status == OperationStatus::Failed {
+                let failure_detail = results.last().map(|r| r.detail.trim()).unwrap_or("");
+                if !failure_detail.is_empty() {
+                    println!("{failure_detail}");
+                }
+            }
+        }
 
         // Break on failure unless failure_is_warning
         if status == OperationStatus::Failed && !op.failure_is_warning {

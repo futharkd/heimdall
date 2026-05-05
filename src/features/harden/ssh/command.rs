@@ -17,6 +17,8 @@ pub fn run(opts: HardenSshCommand, global: &crate::cli::GlobalOpts) -> Result<Ex
 
     let plan = build_plan(&resolved.config)?;
 
+    let live_execution =
+        matches!(resolved.output, crate::cli::OutputFormat::Human) && !resolved.config.dry_run;
     let io_mode =
         if matches!(resolved.output, crate::cli::OutputFormat::Json) || resolved.config.dry_run {
             IoMode::Buffered
@@ -28,8 +30,28 @@ pub fn run(opts: HardenSshCommand, global: &crate::cli::GlobalOpts) -> Result<Ex
 
     match resolved.output {
         crate::cli::OutputFormat::Human => {
-            let formatted = format_report_human(&report, &style);
-            println!("{}", formatted);
+            if live_execution {
+                let mut planned = 0usize;
+                let mut skipped = 0usize;
+                let mut succeeded = 0usize;
+                let mut failed = 0usize;
+                for op in &report.operations {
+                    match op.status.as_str() {
+                        "planned" => planned += 1,
+                        "skipped" => skipped += 1,
+                        "succeeded" => succeeded += 1,
+                        "failed" => failed += 1,
+                        _ => {}
+                    }
+                }
+                println!(
+                    "done: {succeeded} succeeded, {skipped} skipped, {failed} failed, {planned} planned of {} total",
+                    report.operations.len()
+                );
+            } else {
+                let formatted = format_report_human(&report, &style);
+                println!("{}", formatted);
+            }
         }
         crate::cli::OutputFormat::Json => {
             let json_report = json!({

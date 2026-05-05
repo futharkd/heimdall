@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/futharkd/heimdall/compare/v1.2.2...v1.3.0) (2026-05-05)
+
+
+### Features
+
+* **bootstrap infisical:** recursive folder discovery and service sync ([b4ced06](https://github.com/futharkd/heimdall/commit/b4ced06928b56b028e974e83a1d98ac4f6baf267))
+
 ## [1.2.2](https://github.com/futharkd/heimdall/compare/v1.2.1...v1.2.2) (2026-05-05)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/futharkd/heimdall/compare/v1.3.2...v1.4.0) (2026-05-05)
+
+
+### Features
+
+* **bootstrap infisical:** add visible folder discovery diagnostics in TTY ([385824b](https://github.com/futharkd/heimdall/commit/385824bdf0f60e967755b7de87bd5cfc06be48b9))
+
 ## [1.3.2](https://github.com/futharkd/heimdall/compare/v1.3.1...v1.3.2) (2026-05-05)
 
 

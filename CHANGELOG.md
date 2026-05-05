@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.7](https://github.com/futharkd/heimdall/compare/v0.8.6...v0.8.7) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** match properly json parser and remove redundant login ([ebe9570](https://github.com/futharkd/heimdall/commit/ebe9570bf8358cec9055df44b09a0c194b976b45))
+
 ## [0.8.6](https://github.com/futharkd/heimdall/compare/v0.8.5...v0.8.6) (2026-05-05)
 
 

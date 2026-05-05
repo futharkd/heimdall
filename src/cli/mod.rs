@@ -82,6 +82,8 @@ pub enum BootstrapAction {
     Docker(BootstrapDockerCommand),
     /// Install Flux GitOps framework with SSH-based Git bootstrap or reconcile existing install.
     Flux(BootstrapFluxCommand),
+    /// Install Infisical CLI and configure Universal Auth agent for secrets management.
+    Infisical(BootstrapInfisicalCommand),
     /// Install k3s Kubernetes cluster (server or agent) via the official get.k3s.io installer.
     K3s(BootstrapK3sCommand),
     /// Install and join NetBird VPN overlay network via official installer.
@@ -323,6 +325,70 @@ pub struct BootstrapUserCommand {
     pub dry_run: bool,
     #[arg(long)]
     pub yes: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    pub output: OutputFormat,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+#[command(
+    about = "Install Infisical CLI and configure Universal Auth agent for secrets management."
+)]
+#[command(
+    long_about = "Install Infisical CLI, authenticate, discover secrets folders, \
+and deploy the Infisical Agent as a systemd service. \
+Supports interactive folder discovery (via `infisical secrets folders list`) with fallback to manual specification. \
+Securely writes Universal Auth credentials to {secrets_dir}/.infisical/ (mode 600). \
+Generates agent.yaml with templates for root folder and each subfolder. \
+Supports --dry-run, --skip-login, --yes, --output json. \
+Environment vars: INFISICAL_ADDRESS, INFISICAL_PROJECT_SLUG, INFISICAL_ENV, INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET."
+)]
+pub struct BootstrapInfisicalCommand {
+    /// Infisical API address (default: https://eu.infisical.com).
+    #[arg(long)]
+    pub address: Option<String>,
+
+    /// Infisical project slug (required; prompted if TTY).
+    #[arg(long)]
+    pub project_slug: Option<String>,
+
+    /// Secrets environment (default: prod).
+    #[arg(long)]
+    pub environment: Option<String>,
+
+    /// Node name for folder discovery (default: hostname).
+    #[arg(long)]
+    pub node_name: Option<String>,
+
+    /// Secrets subfolder names (repeatable; auto-discovered if omitted and logged in).
+    #[arg(long = "folder")]
+    pub folders: Vec<String>,
+
+    /// Universal Auth Client ID (prompted if TTY).
+    #[arg(long)]
+    pub client_id: Option<String>,
+
+    /// Universal Auth Client Secret (prompted if TTY).
+    #[arg(long)]
+    pub client_secret: Option<String>,
+
+    /// Directory for secrets storage and credentials (default: /var/secrets).
+    #[arg(long)]
+    pub secrets_dir: Option<String>,
+
+    /// Directory for Infisical Agent config (default: /etc/heimdall/infisical).
+    #[arg(long)]
+    pub config_dir: Option<String>,
+
+    /// Skip `infisical login` step (user already authenticated).
+    #[arg(long)]
+    pub skip_login: bool,
+
+    #[arg(long)]
+    pub dry_run: bool,
+
+    #[arg(long)]
+    pub yes: bool,
+
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     pub output: OutputFormat,
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/futharkd/heimdall/compare/v1.3.1...v1.3.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** prevent empty folder discovery from corrupting config ([d8bb73c](https://github.com/futharkd/heimdall/commit/d8bb73ce543f3c987936dd1ec927d22eec2e47fe))
+
 ## [1.3.1](https://github.com/futharkd/heimdall/compare/v1.3.0...v1.3.1) (2026-05-05)
 
 

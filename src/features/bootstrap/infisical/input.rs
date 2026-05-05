@@ -194,7 +194,6 @@ fn universal_auth_token(client_id: &str, client_secret: &str, address: &str) -> 
 }
 
 fn discover_folders(
-    project_slug: &str,
     environment: &str,
     node_name: &str,
     token: &str,
@@ -204,11 +203,9 @@ fn discover_folders(
         .args([
             "secrets",
             "folders",
-            "list",
+            "get",
             "--domain",
             address,
-            "--project-slug",
-            project_slug,
             "--env",
             environment,
             "--path",
@@ -246,7 +243,6 @@ fn discover_folders(
 
 fn resolve_folders(
     opts: &BootstrapInfisicalCommand,
-    project_slug: &str,
     environment: &str,
     node_name: &str,
     client_id: &str,
@@ -258,7 +254,7 @@ fn resolve_folders(
     }
 
     let discovery_result = universal_auth_token(client_id, client_secret, address)
-        .and_then(|token| discover_folders(project_slug, environment, node_name, &token, address));
+        .and_then(|token| discover_folders(environment, node_name, &token, address));
 
     match discovery_result {
         Ok(folders) => {
@@ -311,7 +307,6 @@ pub fn resolve_inputs(opts: BootstrapInfisicalCommand) -> Result<ResolvedInfisic
 
     let folders = resolve_folders(
         &opts,
-        &project_slug,
         &environment,
         &node_name,
         &client_id,

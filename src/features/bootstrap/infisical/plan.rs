@@ -155,8 +155,6 @@ pub fn build_plan(config: &BootstrapInfisicalConfig) -> Result<Vec<InfisicalPlan
             "list".to_string(),
             "--domain".to_string(),
             config.address.clone(),
-            "--project-slug".to_string(),
-            config.project_slug.clone(),
             "--env".to_string(),
             config.environment.clone(),
             "--path".to_string(),

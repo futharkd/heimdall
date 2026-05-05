@@ -1,6 +1,7 @@
 use crate::cli::{BootstrapInfisicalCommand, OutputFormat};
+use crate::features::bootstrap::infisical::validate;
 use anyhow::Result;
-use inquire::Text;
+use inquire::{Select, Text};
 use std::io::IsTerminal;
 use std::process::Command;
 
@@ -121,13 +122,51 @@ fn resolve_node_name(opts: &BootstrapInfisicalCommand) -> Result<String> {
     }
 }
 
-fn universal_auth_token(client_id: &str, client_secret: &str) -> Result<String> {
+const ADDRESS_EU: &str = "https://eu.infisical.com";
+const ADDRESS_US: &str = "https://app.infisical.com";
+
+fn resolve_address(opts: &BootstrapInfisicalCommand) -> Result<String> {
+    if let Some(addr) = &opts.address {
+        return Ok(addr.clone());
+    }
+
+    if !std::io::stdin().is_terminal() {
+        return Ok(ADDRESS_EU.to_string());
+    }
+
+    let options = vec![
+        format!("EU ({ADDRESS_EU})"),
+        format!("US ({ADDRESS_US})"),
+        "Custom (self-hosted)".to_string(),
+    ];
+
+    let choice = map_inquire(
+        Select::new("Infisical region:", options.clone())
+            .with_starting_cursor(0)
+            .prompt(),
+    )?;
+
+    if choice == options[0] {
+        Ok(ADDRESS_EU.to_string())
+    } else if choice == options[1] {
+        Ok(ADDRESS_US.to_string())
+    } else {
+        let url = map_inquire(Text::new("Infisical API URL:").prompt())?;
+        let trimmed = url.trim().to_string();
+        validate::validate_address(&trimmed)?;
+        Ok(trimmed)
+    }
+}
+
+fn universal_auth_token(client_id: &str, client_secret: &str, address: &str) -> Result<String> {
     let output = Command::new("infisical")
         .args([
             "login",
             "--method=universal-auth",
             "--plain",
             "--silent",
+            "--domain",
+            address,
             "--client-id",
             client_id,
             "--client-secret",
@@ -159,12 +198,15 @@ fn discover_folders(
     environment: &str,
     node_name: &str,
     token: &str,
+    address: &str,
 ) -> Result<Vec<String>> {
     let output = Command::new("infisical")
         .args([
             "secrets",
             "folders",
             "list",
+            "--domain",
+            address,
             "--project-slug",
             project_slug,
             "--env",
@@ -209,13 +251,14 @@ fn resolve_folders(
     node_name: &str,
     client_id: &str,
     client_secret: &str,
+    address: &str,
 ) -> Result<Vec<String>> {
     if !opts.folders.is_empty() {
         return Ok(opts.folders.clone());
     }
 
-    let discovery_result = universal_auth_token(client_id, client_secret)
-        .and_then(|token| discover_folders(project_slug, environment, node_name, &token));
+    let discovery_result = universal_auth_token(client_id, client_secret, address)
+        .and_then(|token| discover_folders(project_slug, environment, node_name, &token, address));
 
     match discovery_result {
         Ok(folders) => {
@@ -256,10 +299,7 @@ fn resolve_folders(
 }
 
 pub fn resolve_inputs(opts: BootstrapInfisicalCommand) -> Result<ResolvedInfisicalInputs> {
-    let address = opts
-        .address
-        .clone()
-        .unwrap_or_else(|| "https://eu.infisical.com".to_string());
+    let address = resolve_address(&opts)?;
     let environment = opts
         .environment
         .clone()
@@ -276,6 +316,7 @@ pub fn resolve_inputs(opts: BootstrapInfisicalCommand) -> Result<ResolvedInfisic
         &node_name,
         &client_id,
         &client_secret,
+        &address,
     )?;
 
     let secrets_dir = opts

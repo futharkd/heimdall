@@ -74,7 +74,11 @@ pub fn build_plan(config: &BootstrapInfisicalConfig) -> Result<Vec<InfisicalPlan
             id: "infisical_login",
             description: "Authenticate with Infisical",
             command: "infisical".to_string(),
-            args: vec!["login".to_string()],
+            args: vec![
+                "login".to_string(),
+                "--domain".to_string(),
+                config.address.clone(),
+            ],
         });
     }
 
@@ -149,6 +153,8 @@ pub fn build_plan(config: &BootstrapInfisicalConfig) -> Result<Vec<InfisicalPlan
         args: vec![
             "secrets".to_string(),
             "list".to_string(),
+            "--domain".to_string(),
+            config.address.clone(),
             "--project-slug".to_string(),
             config.project_slug.clone(),
             "--env".to_string(),

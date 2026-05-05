@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.4](https://github.com/futharkd/heimdall/compare/v0.8.3...v0.8.4) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** allow selecting infisical domain ([6edb05b](https://github.com/futharkd/heimdall/commit/6edb05bd4a06e53c77cc990b4ba267c5015e51fc))
+
 ## [0.8.3](https://github.com/futharkd/heimdall/compare/v0.8.2...v0.8.3) (2026-05-05)
 
 

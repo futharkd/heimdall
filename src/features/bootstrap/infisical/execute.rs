@@ -116,7 +116,7 @@ pub fn execute_plan(
                             .map(|d| d.as_nanos())
                             .unwrap_or(0);
                         let temp_path = format!("/tmp/infisical-{}", nanos);
-                        
+
                         if fs::write(&temp_path, &content).is_err() {
                             OperationStatus::Failed
                         } else if fs::set_permissions(&temp_path, fs::Permissions::from_mode(0o600))
@@ -126,29 +126,17 @@ pub fn execute_plan(
                             OperationStatus::Failed
                         } else {
                             // Copy temp file to target with sudo
-                            let copy_args = vec![
-                                "cp",
-                                &temp_path,
-                                &path_str,
-                            ];
-                            
+                            let copy_args = vec!["cp", &temp_path, &path_str];
+
                             match runner.run_with_env_io("sudo", &copy_args, &[], io_mode) {
                                 Ok(output) if output.status.success() => {
                                     // Set final permissions with sudo
                                     let mode_str = format!("{:o}", mode);
-                                    let chmod_args = vec![
-                                        "chmod",
-                                        &mode_str,
-                                        &path_str,
-                                    ];
-                                    let chmod_status = runner.run_with_env_io(
-                                        "sudo",
-                                        &chmod_args,
-                                        &[],
-                                        io_mode,
-                                    );
+                                    let chmod_args = vec!["chmod", &mode_str, &path_str];
+                                    let chmod_status =
+                                        runner.run_with_env_io("sudo", &chmod_args, &[], io_mode);
                                     let _ = fs::remove_file(&temp_path);
-                                    
+
                                     match chmod_status {
                                         Ok(output) if output.status.success() => {
                                             OperationStatus::Succeeded
@@ -169,8 +157,11 @@ pub fn execute_plan(
                             } else {
                                 match fs::write(&path, &content) {
                                     Ok(_) => {
-                                        if fs::set_permissions(&path, fs::Permissions::from_mode(mode))
-                                            .is_err()
+                                        if fs::set_permissions(
+                                            &path,
+                                            fs::Permissions::from_mode(mode),
+                                        )
+                                        .is_err()
                                         {
                                             OperationStatus::Failed
                                         } else {

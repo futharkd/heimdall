@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/futharkd/heimdall/compare/v1.0.1...v1.0.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** create secret subdirs before agent start ([da5c00c](https://github.com/futharkd/heimdall/commit/da5c00ca65e01307bbb95a16c2fdded1103694ee))
+* **io:** route config and key reads through elevation ([6ff3c94](https://github.com/futharkd/heimdall/commit/6ff3c94d0090bb5c430dfca13b2d318affca90c8))
+
 ## [1.0.1](https://github.com/futharkd/heimdall/compare/v1.0.0...v1.0.1) (2026-05-05)
 
 

@@ -179,12 +179,12 @@ pub fn build_plan(config: &BootstrapInfisicalConfig) -> Result<Vec<InfisicalPlan
     });
 
     ops.push(InfisicalPlannedOperation::Subprocess {
-        id: "systemd_start",
-        description: "Start infisical-agent service",
+        id: "systemd_restart",
+        description: "Restart infisical-agent service",
         command: "sudo".to_string(),
         args: vec![
             "systemctl".to_string(),
-            "start".to_string(),
+            "restart".to_string(),
             "infisical-agent.service".to_string(),
         ],
         env: vec![],

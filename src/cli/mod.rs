@@ -104,6 +104,32 @@ impl From<ServiceAction> for crate::features::service::ServiceActionKind {
     }
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum InfisicalServiceAction {
+    /// Show service status.
+    Status,
+    /// Start the service.
+    Start,
+    /// Stop the service.
+    Stop,
+    /// Restart the service.
+    Restart,
+    /// Re-discover secrets folders and update Infisical Agent config.
+    Sync,
+}
+
+impl From<InfisicalServiceAction> for crate::features::service::ServiceActionKind {
+    fn from(value: InfisicalServiceAction) -> Self {
+        match value {
+            InfisicalServiceAction::Status => crate::features::service::ServiceActionKind::Status,
+            InfisicalServiceAction::Start => crate::features::service::ServiceActionKind::Start,
+            InfisicalServiceAction::Stop => crate::features::service::ServiceActionKind::Stop,
+            InfisicalServiceAction::Restart => crate::features::service::ServiceActionKind::Restart,
+            InfisicalServiceAction::Sync => crate::features::service::ServiceActionKind::Status,
+        }
+    }
+}
+
 #[derive(Debug, clap::Args)]
 pub struct ServiceKomodoCommand {
     #[arg(value_enum)]
@@ -135,8 +161,8 @@ pub enum KomodoServiceMode {
 #[derive(Debug, clap::Args)]
 pub struct ServiceInfisicalCommand {
     #[arg(value_enum)]
-    pub action: ServiceAction,
-    /// Systemd unit name to manage.
+    pub action: InfisicalServiceAction,
+    /// Systemd unit name to manage (ignored for sync action).
     #[arg(long, default_value = "infisical-agent.service")]
     pub unit_name: String,
     /// Print planned operations without executing them.

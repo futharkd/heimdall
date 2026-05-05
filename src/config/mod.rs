@@ -27,6 +27,12 @@ pub struct InfisicalState {
     pub project_slug: Option<String>,
     pub environment: Option<String>,
     pub node_name: Option<String>,
+    #[serde(default)]
+    pub secrets_dir: Option<String>,
+    #[serde(default)]
+    pub config_dir: Option<String>,
+    #[serde(default)]
+    pub folders: Vec<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -117,6 +123,9 @@ mod tests {
                     project_slug: Some("kenaz".to_string()),
                     environment: Some("prod".to_string()),
                     node_name: Some("kenaz".to_string()),
+                    secrets_dir: Some("/var/secrets".to_string()),
+                    config_dir: Some("/etc/heimdall/infisical".to_string()),
+                    folders: vec!["app".to_string(), "app/config".to_string()],
                 }),
             }),
         };
@@ -140,6 +149,12 @@ mod tests {
         );
         assert_eq!(infisical.environment.as_deref(), Some("prod"));
         assert_eq!(infisical.node_name.as_deref(), Some("kenaz"));
+        assert_eq!(infisical.secrets_dir.as_deref(), Some("/var/secrets"));
+        assert_eq!(
+            infisical.config_dir.as_deref(),
+            Some("/etc/heimdall/infisical")
+        );
+        assert_eq!(infisical.folders.len(), 2);
     }
 
     #[test]

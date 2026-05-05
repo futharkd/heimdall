@@ -84,6 +84,9 @@ pub fn run(opts: BootstrapInfisicalCommand, global: &GlobalOpts) -> Result<ExitS
             project_slug: Some(config.project_slug.clone()),
             environment: Some(config.environment.clone()),
             node_name: Some(config.node_name.clone()),
+            secrets_dir: Some(config.secrets_dir.clone()),
+            config_dir: Some(config.config_dir.clone()),
+            folders: artifacts.folders.clone(),
         });
         if let Err(e) = crate::config::save(&hcfg, &path) {
             eprintln!("warning: failed to persist heimdall config: {e}");

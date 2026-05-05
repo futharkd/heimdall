@@ -39,7 +39,7 @@ fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
     })
 }
 
-fn parse_folder_names(stdout_json: &str) -> Result<Vec<String>> {
+pub(crate) fn parse_folder_names(stdout_json: &str) -> Result<Vec<String>> {
     let folders = serde_json::from_str::<Vec<serde_json::Value>>(stdout_json)
         .map_err(|_| anyhow::anyhow!("failed to parse folder list JSON"))?;
     Ok(folders
@@ -52,7 +52,11 @@ fn parse_folder_names(stdout_json: &str) -> Result<Vec<String>> {
         .collect())
 }
 
-fn universal_auth_token(client_id: &str, client_secret: &str, address: &str) -> Result<String> {
+pub(crate) fn universal_auth_token(
+    client_id: &str,
+    client_secret: &str,
+    address: &str,
+) -> Result<String> {
     let output = Command::new("infisical")
         .args([
             "login",
@@ -87,6 +91,90 @@ fn universal_auth_token(client_id: &str, client_secret: &str, address: &str) -> 
     }
 }
 
+pub(crate) fn discover_folders_recursive(
+    address: &str,
+    project_id: &str,
+    token: &str,
+    node_name: &str,
+) -> Vec<String> {
+    discover_folders_at(
+        address,
+        project_id,
+        token,
+        &format!("/{}", node_name),
+        "",
+        0,
+    )
+}
+
+fn discover_folders_at(
+    address: &str,
+    project_id: &str,
+    token: &str,
+    infisical_path: &str,
+    relative_prefix: &str,
+    depth: u8,
+) -> Vec<String> {
+    if depth >= 10 {
+        return Vec::new();
+    }
+
+    let output = match Command::new("infisical")
+        .args([
+            "secrets",
+            "folders",
+            "get",
+            "--domain",
+            address,
+            "--projectId",
+            project_id,
+            "--path",
+            infisical_path,
+            "--token",
+            token,
+            "--output",
+            "json",
+        ])
+        .output()
+    {
+        Ok(out) => out,
+        Err(_) => return Vec::new(),
+    };
+
+    if !output.status.success() {
+        return Vec::new();
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let child_names = match parse_folder_names(&stdout) {
+        Ok(names) => names,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut result = Vec::new();
+    for name in child_names {
+        let relative_path = if relative_prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{}/{}", relative_prefix, name)
+        };
+        result.push(relative_path.clone());
+
+        let next_infisical_path = format!("{}/{}", infisical_path, name);
+        let mut children = discover_folders_at(
+            address,
+            project_id,
+            token,
+            &next_infisical_path,
+            &relative_path,
+            depth + 1,
+        );
+        result.append(&mut children);
+    }
+
+    result
+}
+
 pub fn resolve_plan_artifacts(config: &BootstrapInfisicalConfig) -> Result<InfisicalPlanArtifacts> {
     if !config.folders.is_empty() {
         return Ok(InfisicalPlanArtifacts {
@@ -97,35 +185,22 @@ pub fn resolve_plan_artifacts(config: &BootstrapInfisicalConfig) -> Result<Infis
     let discovery_result =
         universal_auth_token(&config.client_id, &config.client_secret, &config.address).and_then(
             |token| {
-                Command::new("infisical")
-                    .args([
-                        "secrets",
-                        "folders",
-                        "get",
-                        "--domain",
-                        &config.address,
-                        "--projectId",
-                        &config.project_id,
-                        "--path",
-                        &format!("/{}", config.node_name),
-                        "--token",
-                        &token,
-                        "--output",
-                        "json",
-                    ])
-                    .output()
-                    .map_err(|e| anyhow::anyhow!("failed to invoke `infisical`: {e}"))
-                    .and_then(|output| {
-                        if output.status.success() {
-                            parse_folder_names(&String::from_utf8_lossy(&output.stdout))
-                        } else {
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            Err(anyhow::anyhow!(
-                                "folder discovery failed: {}",
-                                stderr.trim()
-                            ))
-                        }
-                    })
+                let folders = discover_folders_at(
+                    &config.address,
+                    &config.project_id,
+                    &token,
+                    &format!("/{}", config.node_name),
+                    "",
+                    0,
+                );
+                if folders.is_empty() {
+                    Err(anyhow::anyhow!(
+                        "no folders discovered at /{} (may be empty)",
+                        config.node_name
+                    ))
+                } else {
+                    Ok(folders)
+                }
             },
         );
 

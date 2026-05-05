@@ -1,39 +1,35 @@
 use anyhow::Result;
 
 use crate::cli::NetbirdInstallMethod;
+use crate::core::operation::{OperationKind, PlannedOperation};
 
 use super::input::BootstrapNetbirdConfig;
 
-#[derive(Debug, Clone)]
-pub struct NetbirdPlannedOperation {
-    pub id: &'static str,
-    pub description: &'static str,
-    pub command: String,
-    pub args: Vec<String>,
-    pub env: Vec<(String, String)>,
-    pub failure_is_warning: bool,
-}
-
-pub fn build_plan(config: &BootstrapNetbirdConfig) -> Result<Vec<NetbirdPlannedOperation>> {
+pub fn build_plan(config: &BootstrapNetbirdConfig) -> Result<Vec<PlannedOperation>> {
     let install_path = config
         .install_script_path
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("install script path is not valid UTF-8"))?
         .to_string();
 
-    let download = NetbirdPlannedOperation {
+    let mut ops = vec![PlannedOperation {
         id: "download_official_install_script",
-        description: "Download official NetBird install.sh from pkgs.netbird.io",
-        command: "curl".to_string(),
-        args: vec![
-            "-fsSL".to_string(),
-            "-o".to_string(),
-            install_path.clone(),
-            "https://pkgs.netbird.io/install.sh".to_string(),
-        ],
-        env: vec![],
+        description: "Download official NetBird install.sh from pkgs.netbird.io".to_string(),
+        kind: OperationKind::Shell {
+            command: "curl".to_string(),
+            args: vec![
+                "-fsSL".to_string(),
+                "-o".to_string(),
+                install_path.clone(),
+                "https://pkgs.netbird.io/install.sh".to_string(),
+            ],
+            env: vec![],
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
-    };
+        verify: None,
+    }];
 
     let mut install_env: Vec<(String, String)> =
         vec![("NETBIRD_RELEASE".to_string(), config.release.clone())];
@@ -52,14 +48,19 @@ pub fn build_plan(config: &BootstrapNetbirdConfig) -> Result<Vec<NetbirdPlannedO
         }
     }
 
-    let run_install = NetbirdPlannedOperation {
+    ops.push(PlannedOperation {
         id: "run_official_install_script",
-        description: "Execute official NetBird install.sh (delegates to apt/dnf/yum or binary upstream)",
-        command: "sh".to_string(),
-        args: vec![install_path],
-        env: install_env,
+        description: "Execute official NetBird install.sh (delegates to apt/dnf/yum or binary upstream)".to_string(),
+        kind: OperationKind::Shell {
+            command: "sh".to_string(),
+            args: vec![install_path],
+            env: install_env,
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
-    };
+        verify: None,
+    });
 
     let mut up_args = vec!["up".to_string()];
     if let Some(key) = &config.setup_key {
@@ -71,34 +72,49 @@ pub fn build_plan(config: &BootstrapNetbirdConfig) -> Result<Vec<NetbirdPlannedO
         up_args.push(url.clone());
     }
 
-    let netbird_up = NetbirdPlannedOperation {
+    ops.push(PlannedOperation {
         id: "netbird_up",
-        description: "Join NetBird network (official `netbird up` CLI)",
-        command: "netbird".to_string(),
-        args: up_args,
-        env: vec![],
+        description: "Join NetBird network (official `netbird up` CLI)".to_string(),
+        kind: OperationKind::Shell {
+            command: "netbird".to_string(),
+            args: up_args,
+            env: vec![],
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
-    };
+        verify: None,
+    });
 
-    let status = NetbirdPlannedOperation {
+    ops.push(PlannedOperation {
         id: "netbird_status",
-        description: "Verify NetBird client status",
-        command: "netbird".to_string(),
-        args: vec!["status".to_string()],
-        env: vec![],
+        description: "Verify NetBird client status".to_string(),
+        kind: OperationKind::Shell {
+            command: "netbird".to_string(),
+            args: vec!["status".to_string()],
+            env: vec![],
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: false,
-    };
+        verify: None,
+    });
 
-    let wt0 = NetbirdPlannedOperation {
+    ops.push(PlannedOperation {
         id: "verify_wt0_interface",
-        description: "Check for wt0 interface (optional; may be absent until fully connected)",
-        command: "ip".to_string(),
-        args: vec!["link".to_string(), "show".to_string(), "wt0".to_string()],
-        env: vec![],
+        description: "Check for wt0 interface (optional; may be absent until fully connected)".to_string(),
+        kind: OperationKind::Shell {
+            command: "ip".to_string(),
+            args: vec!["link".to_string(), "show".to_string(), "wt0".to_string()],
+            env: vec![],
+            stdin_input: None,
+        },
+        requires_confirmation: false,
         failure_is_warning: true,
-    };
+        verify: None,
+    });
 
-    Ok(vec![download, run_install, netbird_up, status, wt0])
+    Ok(ops)
 }
 
 #[cfg(test)]
@@ -106,6 +122,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::cli::NetbirdInstallMethod;
+    use crate::core::operation::OperationKind;
 
     use super::build_plan;
     use crate::features::bootstrap::netbird::input::BootstrapNetbirdConfig;
@@ -141,57 +158,46 @@ mod tests {
         let plan = build_plan(&sample_config()).expect("plan");
         let dl = plan.first().expect("download step");
         assert_eq!(dl.id, "download_official_install_script");
-        assert!(
-            dl.args
-                .contains(&"https://pkgs.netbird.io/install.sh".to_string())
-        );
+        if let OperationKind::Shell { args, .. } = &dl.kind {
+            assert!(args.contains(&"https://pkgs.netbird.io/install.sh".to_string()));
+        } else {
+            panic!("expected Shell kind");
+        }
 
         let inst = plan.get(1).expect("install step");
         assert_eq!(inst.id, "run_official_install_script");
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "NETBIRD_RELEASE" && v == "latest")
-        );
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "SKIP_UI_APP" && v == "true")
-        );
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "USE_BIN_INSTALL" && v == "true")
-        );
+        if let OperationKind::Shell { env, .. } = &inst.kind {
+            assert!(env.iter().any(|(k, v)| k == "NETBIRD_RELEASE" && v == "latest"));
+            assert!(env.iter().any(|(k, v)| k == "SKIP_UI_APP" && v == "true"));
+            assert!(env.iter().any(|(k, v)| k == "USE_BIN_INSTALL" && v == "true"));
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 
     #[test]
     fn plan_package_install_sets_debian_frontend_not_use_bin() {
         let plan = build_plan(&sample_config_package()).expect("plan");
         let inst = plan.get(1).expect("install step");
-        assert!(
-            inst.env
-                .iter()
-                .any(|(k, v)| k == "DEBIAN_FRONTEND" && v == "noninteractive")
-        );
-        assert!(!inst.env.iter().any(|(k, _)| k == "USE_BIN_INSTALL"));
+        if let OperationKind::Shell { env, .. } = &inst.kind {
+            assert!(env.iter().any(|(k, v)| k == "DEBIAN_FRONTEND" && v == "noninteractive"));
+            assert!(!env.iter().any(|(k, _)| k == "USE_BIN_INSTALL"));
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 
     #[test]
     fn plan_netbird_up_includes_setup_key_and_management_url() {
         let plan = build_plan(&sample_config()).expect("plan");
         let up = plan.iter().find(|s| s.id == "netbird_up").expect("up");
-        let pos = up
-            .args
-            .iter()
-            .position(|a| a == "--setup-key")
-            .expect("--setup-key");
-        assert!(!up.args[pos + 1].is_empty());
-        let mpos = up
-            .args
-            .iter()
-            .position(|a| a == "--management-url")
-            .expect("--management-url");
-        assert_eq!(up.args[mpos + 1], "https://netbird.example:443");
+        if let OperationKind::Shell { args, .. } = &up.kind {
+            let pos = args.iter().position(|a| a == "--setup-key").expect("--setup-key");
+            assert!(!args[pos + 1].is_empty());
+            let mpos = args.iter().position(|a| a == "--management-url").expect("--management-url");
+            assert_eq!(args[mpos + 1], "https://netbird.example:443");
+        } else {
+            panic!("expected Shell kind");
+        }
     }
 }

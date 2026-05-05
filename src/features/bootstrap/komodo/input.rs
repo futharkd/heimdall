@@ -1,4 +1,6 @@
 use crate::cli::{BootstrapKomodoCommand, KomodoMode, OutputFormat};
+use crate::runner::read::read_file_with_escalation;
+use crate::runner::{IoMode, LocalRunner};
 use anyhow::Result;
 use inquire::{Confirm, Select, Text};
 use std::fs;
@@ -227,7 +229,12 @@ pub fn resolve_inputs(opts: BootstrapKomodoCommand) -> Result<ResolvedKomodoInpu
 
     // Read core public key from file if provided
     let core_public_key_content = if let Some(key_file) = opts.core_public_key_file {
-        Some(fs::read_to_string(&key_file)?)
+        let runner = LocalRunner;
+        Some(read_file_with_escalation(
+            &runner,
+            std::path::Path::new(&key_file),
+            IoMode::Buffered,
+        )?)
     } else {
         None
     };

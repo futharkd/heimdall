@@ -2,6 +2,8 @@ use anyhow::{Context, Result, bail};
 use inquire::{Confirm, Password, Text};
 
 use crate::cli::{BootstrapUserCommand, OutputFormat};
+use crate::runner::read::read_file_with_escalation;
+use crate::runner::{IoMode, LocalRunner};
 
 fn map_inquire<T>(r: Result<T, inquire::InquireError>) -> anyhow::Result<T> {
     r.map_err(|e| match e {
@@ -44,9 +46,11 @@ pub fn resolve_inputs(opts: BootstrapUserCommand) -> Result<ResolvedInputs> {
 
     let group = opts.group.unwrap_or_else(|| user.clone());
     let mut keys = opts.keys;
+    let runner = LocalRunner;
     for key_file in opts.key_files {
-        let content = std::fs::read_to_string(&key_file)
-            .with_context(|| format!("failed to read key file: {key_file}"))?;
+        let content =
+            read_file_with_escalation(&runner, std::path::Path::new(&key_file), IoMode::Buffered)
+                .with_context(|| format!("failed to read key file: {key_file}"))?;
         keys.extend(
             content
                 .lines()

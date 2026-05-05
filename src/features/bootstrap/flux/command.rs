@@ -6,6 +6,7 @@ use anyhow::{Context, Result, bail};
 
 use crate::cli::{BootstrapFluxCommand, GlobalOpts, OutputFormat};
 use crate::output::{Style, execution_footer_line};
+use crate::runner::read::read_file_with_escalation;
 use crate::runner::{IoMode, LocalRunner};
 use crate::runtime::ExitStatus;
 
@@ -109,7 +110,8 @@ fn prepare_bootstrap_private_key(cfg: &mut BootstrapFluxConfig) -> Result<()> {
         .context("generate SSH deploy key with ssh-keygen")?;
 
     let pub_path = key_path.with_extension("pub");
-    let pubkey = fs::read_to_string(&pub_path)
+    let runner = LocalRunner;
+    let pubkey = read_file_with_escalation(&runner, &pub_path, IoMode::Buffered)
         .with_context(|| format!("read generated public key {pub_path:?}"))?;
 
     eprintln!();

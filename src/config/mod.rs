@@ -4,6 +4,11 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
+use crate::core::operation::OperationStatus;
+use crate::runner::read::read_file_with_escalation;
+use crate::runner::write::write_file_with_escalation;
+use crate::runner::{IoMode, LocalRunner};
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct HeimdallConfig {
     pub harden: Option<HardenConfig>,
@@ -62,7 +67,8 @@ pub fn load() -> Result<(HeimdallConfig, PathBuf)> {
 
     // Try /etc/heimdall/config.yaml first
     if etc_path.exists() {
-        let content = fs::read_to_string(&etc_path)?;
+        let runner = LocalRunner;
+        let content = read_file_with_escalation(&runner, &etc_path, IoMode::Buffered)?;
         let config: HeimdallConfig = serde_yaml::from_str(&content)?;
         return Ok((config, etc_path));
     }
@@ -84,17 +90,16 @@ pub fn load() -> Result<(HeimdallConfig, PathBuf)> {
 /// Save config to the specified path.
 /// Creates parent directories if needed.
 pub fn save(config: &HeimdallConfig, path: &Path) -> Result<()> {
-    // Create parent directory if it doesn't exist
-    if let Some(parent) = path.parent()
-        && !parent.as_os_str().is_empty()
-        && !parent.exists()
-    {
-        fs::create_dir_all(parent)?;
-    }
-
     let yaml = serde_yaml::to_string(config)?;
-    fs::write(path, yaml)?;
-    Ok(())
+    let runner = LocalRunner;
+    let status = write_file_with_escalation(&runner, path, &yaml, Some(0o600), IoMode::Buffered);
+    match status {
+        OperationStatus::Succeeded => Ok(()),
+        _ => Err(anyhow::anyhow!(
+            "failed to write config at {}",
+            path.display()
+        )),
+    }
 }
 
 #[cfg(test)]

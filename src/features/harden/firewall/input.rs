@@ -1,5 +1,7 @@
 use crate::cli::{HardenFirewallCommand, OutputFormat};
 use crate::config;
+use crate::runner::read::read_file_with_escalation;
+use crate::runner::{IoMode, LocalRunner};
 use anyhow::{Result, anyhow};
 use inquire::Confirm;
 
@@ -127,8 +129,12 @@ fn read_ssh_port() -> Result<u16> {
         return Ok(port);
     }
 
-    // Read from sshd_config
-    match std::fs::read_to_string("/etc/ssh/sshd_config") {
+    let runner = LocalRunner;
+    match read_file_with_escalation(
+        &runner,
+        std::path::Path::new("/etc/ssh/sshd_config"),
+        IoMode::Buffered,
+    ) {
         Ok(content) => {
             for line in content.lines() {
                 let trimmed = line.trim();

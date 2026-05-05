@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.3](https://github.com/futharkd/heimdall/compare/v0.8.2...v0.8.3) (2026-05-05)
+
+
+### Bug Fixes
+
+* **bootstrap infisical:** login before discovery ([e8eba37](https://github.com/futharkd/heimdall/commit/e8eba378f11883b1af2cb15e5436aefe259ce0ff))
+
 ## [0.8.2](https://github.com/futharkd/heimdall/compare/v0.8.1...v0.8.2) (2026-05-05)
 
 

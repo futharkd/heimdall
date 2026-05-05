@@ -1,3 +1,4 @@
+pub mod executor;
 pub mod sudo;
 
 use std::io::{self, Read, Write};

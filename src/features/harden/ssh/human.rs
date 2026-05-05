@@ -18,7 +18,7 @@ pub fn format_report_human(report: &HardenSshReport, style: &Style) -> String {
         };
 
         let token = style.status_token(token_label, tone);
-        let desc = style.bold(&op.description);
+        let desc = style.bold(op.description.as_str());
         lines.push(format!("{} {}", token, desc));
 
         if !op.detail.is_empty() {
